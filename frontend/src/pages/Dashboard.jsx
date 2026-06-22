@@ -22,6 +22,11 @@ export default function Dashboard() {
       setProjects(p);
     } catch (err) {
       setError(err.message);
+      if (err.message.includes('DATABASE') || err.message.includes('500')) {
+        setError(
+          `${err.message} — If this is the Vercel deployment, add a DATABASE_URL environment variable (e.g. Neon PostgreSQL) and run migrations.`,
+        );
+      }
     } finally {
       setLoading(false);
     }

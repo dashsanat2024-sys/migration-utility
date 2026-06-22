@@ -1,19 +1,39 @@
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
+async function readJsonBody(response) {
+  const contentType = response.headers.get('content-type') || '';
+  const text = await response.text();
+  if (!text) return null;
+  if (!contentType.includes('application/json') && text.trimStart().startsWith('<')) {
+    throw new Error(
+      'API returned HTML instead of JSON. The backend may not be deployed — set VITE_API_BASE in Vercel or check /api routing.',
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(text.slice(0, 200) || 'Invalid JSON response from API');
+  }
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, options);
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body = await response.json();
-      detail = body.detail || JSON.stringify(body);
-    } catch {
-      /* ignore */
+      const body = await readJsonBody(response);
+      if (body) {
+        detail = body.detail || JSON.stringify(body);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('HTML')) {
+        throw err;
+      }
     }
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
   if (response.status === 204) return null;
-  return response.json();
+  return readJsonBody(response);
 }
 
 export const api = {

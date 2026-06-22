@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_reload: bool = True
     log_level: str = "INFO"
-    cors_origins: str = "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost"
+    cors_origins: str = (
+        "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost,"
+        "https://migration-utility.vercel.app,https://migration-utility-ktutcltba-dashsanat2024-9148s-projects.vercel.app"
+    )
 
     kraken_api_url: str = "https://api.kraken.tech/migration/v1"
     kraken_mock_mode: bool = True
