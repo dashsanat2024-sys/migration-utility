@@ -1,0 +1,7 @@
+{
+  "records": [
+    {"id": "ACC-101", "name": "Frank Miller", "status": "active"},
+    {"id": "ACC-102", "name": "Grace Lee", "status": "active"},
+    {"id": "ACC-103", "name": "Henry Clark", "status": "inactive"}
+  ]
+}

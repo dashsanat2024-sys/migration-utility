@@ -1,0 +1,13 @@
+name,data_type,required,description
+NO_ACCOUNT,string,true,TARGET legacy account number
+NM_FOR_INDIVIDUAL,string,true,Customer full name
+FG_PAPERLESS,bool,false,Paperless billing flag
+CD_BILL_PRT_MED_57,string,false,Bill print medium code
+AD_EMAIL,string,false,Customer email address
+NO_TELEPHONE,string,false,Contact telephone
+DT_OF_BIRTH,date,false,Date of birth
+NM_TIT_IND_134,string,false,Title (individual)
+ID_TAX,string,false,Tax identifier
+FG_OPEN_COMPLAINT,bool,false,Unresolved complaint flag
+CD_BUSINESS_TYPE,string,false,Business type code
+NO_COMPANY,string,false,Company registration number

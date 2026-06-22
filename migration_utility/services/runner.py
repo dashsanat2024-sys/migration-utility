@@ -1,0 +1,245 @@
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy.orm import Session
+
+from migration_utility.connectors.registry import ConnectorRegistry
+from migration_utility.core.enums import AuditAction, BatchStatus, CandidateStatus, RunStatus
+from migration_utility.core.events import EventBus, RunContext
+from migration_utility.core.pipeline import MigrationPipeline
+from migration_utility.datastore.models import Batch, MigrationRun, Project
+from migration_utility.rules.loader import RuleLoader
+from migration_utility.selection.service import CandidateService
+from migration_utility.services.load_records import LoadRecordService
+
+logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+from migration_utility.services.audit import write_audit
+
+
+class RunService:
+    """Executes migration runs and persists status + audit trail."""
+
+    def __init__(self, db: Session, registry: ConnectorRegistry) -> None:
+        self._db = db
+        self._registry = registry
+
+    def execute_run(self, run: MigrationRun, project: Project) -> MigrationRun:
+        run.status = RunStatus.RUNNING.value
+        run.started_at = _utcnow()
+        run.error_message = None
+        write_audit(
+            self._db,
+            entity_type="migration_run",
+            entity_id=str(run.id),
+            action=AuditAction.STATUS_CHANGED,
+            message="Run started",
+            project_id=project.id,
+            run_id=run.id,
+        )
+        self._db.flush()
+
+        event_bus = EventBus()
+        event_bus.subscribe(lambda e: self._on_pipeline_event(run, project, e))
+
+        pipeline = MigrationPipeline(self._registry, event_bus)
+        merged_config = {**project.config, **run.run_config}
+        entity = merged_config.get("entity", "account")
+        rule_loader = RuleLoader(self._db)
+
+        loaded_rule_set = None
+        if merged_config.get("use_rules", True):
+            try:
+                rule_set_id = merged_config.get("rule_set_id")
+                rs_uuid = UUID(str(rule_set_id)) if rule_set_id else None
+                loaded_rule_set = rule_loader.load_for_run(
+                    project.id,
+                    entity,
+                    rule_set_id=rs_uuid,
+                    require_approved=merged_config.get("require_approved_rules", True),
+                )
+            except ValueError as exc:
+                if merged_config.get("block_unapproved_rules", False):
+                    run.status = RunStatus.FAILED.value
+                    run.error_message = str(exc)
+                    run.completed_at = _utcnow()
+                    self._db.commit()
+                    return run
+
+        candidate_service = CandidateService(self._db)
+        use_selection = merged_config.get("use_selection", False)
+
+        for batch in sorted(run.batches, key=lambda b: b.batch_number):
+            batch.status = BatchStatus.RUNNING.value
+            self._db.flush()
+
+            batch_config = {**merged_config, "filter_batch_id": str(batch.id)}
+
+            if use_selection:
+                try:
+                    profile_id = merged_config.get("selection_profile_id")
+                    rs_uuid = UUID(str(profile_id)) if profile_id else None
+                    count = candidate_service.populate_batch(
+                        project,
+                        batch,
+                        entity,
+                        profile_id=rs_uuid,
+                        limit=merged_config.get("candidate_limit"),
+                    )
+                    self._db.commit()
+                    self._db.expire(batch)
+                    if count == 0 and merged_config.get("require_candidates", False):
+                        batch.status = BatchStatus.FAILED.value
+                        batch.stats = {"success": False, "message": "No candidates matched selection"}
+                        run.status = RunStatus.FAILED.value
+                        run.error_message = "No candidates matched selection criteria"
+                        run.completed_at = _utcnow()
+                        self._db.commit()
+                        return run
+                except ValueError as exc:
+                    run.status = RunStatus.FAILED.value
+                    run.error_message = str(exc)
+                    run.completed_at = _utcnow()
+                    self._db.commit()
+                    return run
+
+            ctx = RunContext(
+                project_id=project.id,
+                run_id=run.id,
+                batch_id=batch.id,
+                source_connector_key=project.source_connector_key,
+                target_adapter_key=project.target_adapter_key,
+                config=batch_config,
+                metadata={
+                    "batch_number": batch.batch_number,
+                    "project_slug": project.slug,
+                    "rule_set": loaded_rule_set,
+                    "target_system": project.target_system,
+                    "environment": project.environment,
+                },
+            )
+            result = pipeline.run(ctx)
+
+            load_results = ctx.metadata.get("load_results")
+            load_summary = None
+            if load_results:
+                loaded_count = len(load_results.get("loaded", []))
+                failed_count = len(load_results.get("failed", []))
+                try:
+                    with self._db.begin_nested():
+                        LoadRecordService(self._db).persist_results(
+                            project,
+                            run_id=run.id,
+                            batch_id=batch.id,
+                            target_adapter_key=project.target_adapter_key,
+                            entity=entity,
+                            loaded=load_results.get("loaded", []),
+                            failed=load_results.get("failed", []),
+                        )
+                    load_summary = {"loaded": loaded_count, "failed": failed_count, "persisted": True}
+                except Exception as exc:
+                    logger.warning("Load record persistence skipped: %s", exc)
+                    load_summary = {
+                        "loaded": loaded_count,
+                        "failed": failed_count,
+                        "persisted": False,
+                        "persist_error": str(exc)[:200],
+                    }
+
+            batch.stats = {
+                "success": result.success,
+                "candidate_count": batch.batch_config.get("candidate_count"),
+                "load_summary": load_summary,
+                "stages": [
+                    {
+                        "stage": s.stage,
+                        "success": s.success,
+                        "records_processed": s.records_processed,
+                        "records_failed": s.records_failed,
+                        "message": s.message,
+                    }
+                    for s in result.stages
+                ],
+            }
+            batch.status = (
+                BatchStatus.COMPLETED.value if result.success else BatchStatus.FAILED.value
+            )
+            self._update_candidate_statuses(
+                candidate_service, batch.id, result.success
+            )
+            self._db.flush()
+
+            if not result.success:
+                run.status = RunStatus.FAILED.value
+                run.error_message = result.error
+                run.completed_at = _utcnow()
+                run.result_summary = {"batches_completed": batch.batch_number, "failed": True}
+                self._db.commit()
+                return run
+
+        run.status = RunStatus.COMPLETED.value
+        run.completed_at = _utcnow()
+        run.result_summary = {
+            "batches_completed": len(run.batches),
+            "total_processed": sum(
+                s.get("records_processed", 0)
+                for b in run.batches
+                if b.stats
+                for s in b.stats.get("stages", [])
+            ),
+        }
+        write_audit(
+            self._db,
+            entity_type="migration_run",
+            entity_id=str(run.id),
+            action=AuditAction.STATUS_CHANGED,
+            message="Run completed",
+            details=run.result_summary,
+            project_id=project.id,
+            run_id=run.id,
+        )
+        self._db.commit()
+        self._db.refresh(run)
+        return run
+
+    def _update_candidate_statuses(
+        self,
+        candidate_service: CandidateService,
+        batch_id: UUID,
+        success: bool,
+    ) -> None:
+        new_status = (
+            CandidateStatus.LOADED.value if success else CandidateStatus.FAILED.value
+        )
+        for candidate in candidate_service.list_for_batch(batch_id):
+            candidate.status = new_status
+            candidate.status_history = [
+                *(candidate.status_history or []),
+                {"status": new_status, "message": "Batch pipeline finished"},
+            ]
+
+    def _on_pipeline_event(self, run: MigrationRun, project: Project, event) -> None:
+        write_audit(
+            self._db,
+            entity_type="pipeline",
+            entity_id=str(run.id),
+            action=AuditAction.PIPELINE_STAGE,
+            message=f"{event.stage}: {event.status}",
+            details={
+                "stage": event.stage,
+                "status": event.status,
+                "batch_id": str(event.batch_id) if event.batch_id else None,
+            },
+            project_id=project.id,
+            run_id=run.id,
+        )
+        self._db.flush()

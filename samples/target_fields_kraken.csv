@@ -1,0 +1,6 @@
+name,data_type,required,description
+accountId,string,true,Kraken account identifier
+accountName,string,true,Account name
+accountStatus,string,true,ACTIVE or INACTIVE
+contactEmail,string,false,Primary email
+servicePostcode,string,false,Supply postcode

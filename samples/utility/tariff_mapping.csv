@@ -1,0 +1,4 @@
+source_product,source_start_date,source_end_date,source_rateband,source_rateband2,source_service,dest_service,dest_product,charge_type,dest_rate_band,zone,unit_type
+PROD-HD-007,01-Apr-22,01-Apr-23,Meas Water Cons HHW,Meas Water Cons AdVAT HHW,Meas Water,SVC-FRESH,PROD-METERED-HD,RETAIL,RATE-VOL-ZONE-21-RETAIL,21,Cubic metres consumed
+PROD-HD-007,01-Apr-22,01-Apr-23,Meas Water Cons HHR,Meas Water Cons AdVAT HHR,Meas Water,SVC-FRESH,PROD-METERED-HD,WHOLESALE,RATE-VOL-ZONE-22-WHOLESALE,22,Cubic metres consumed
+PROD-HD-007,01-Apr-23,01-Apr-24,Meas Water Std Chrg HHW,Meas Water Std Chrg AdVAT HHW,Meas Water,SVC-FRESH,PROD-METERED-HD,RETAIL,RATE-VOL-ZONE-21-RETAIL,21,Cubic metres consumed

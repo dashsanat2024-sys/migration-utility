@@ -1,0 +1,13 @@
+name,data_type,required,description
+import_supplier,string,true,Hardcoded supplier identifier (Severn Trent)
+account_number,string,true,Kraken account number (9 digits)
+account_name,string,true,Account display name
+unknown_occupier,bool,false,Unknown occupier flag
+has_open_complaint,bool,false,Open complaint indicator
+company_number,string,false,Company registration number
+business_type,string,false,Business type
+contact_email,string,false,Primary email
+contact_phone,string,false,Primary phone
+date_of_birth,date,false,Date of birth
+customer_title,string,false,Customer title (uppercase)
+customers,array,true,Customer array payload

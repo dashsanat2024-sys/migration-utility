@@ -1,0 +1,6 @@
+name,data_type,required,description
+id,string,true,Legacy account identifier
+name,string,true,Account display name
+status,string,true,Account status active/inactive
+email,string,false,Contact email
+postcode,string,false,Service postcode

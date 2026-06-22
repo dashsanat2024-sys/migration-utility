@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: migration_utility_db
+    environment:
+      POSTGRES_USER: migration
+      POSTGRES_PASSWORD: migration
+      POSTGRES_DB: migration_utility
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U migration -d migration_utility"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: migration_utility_api
+    environment:
+      DATABASE_URL: postgresql://migration:migration@postgres:5432/migration_utility
+      LANDING_ZONE_PATH: /app/data/landing
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - landing_data:/app/data/landing
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: migration_utility_ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  landing_data:

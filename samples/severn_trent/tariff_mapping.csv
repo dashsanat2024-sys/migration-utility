@@ -1,0 +1,4 @@
+target_product,target_start_date,target_end_date,target_rateband,target_rateband2,target_service,kraken_service,kraken_product,charge_type,kraken_rate_band,zone,unit_type
+1HDD-MW007,01-Apr-22,01-Apr-23,Meas Water Cons HHW,Meas Water Cons AdVAT HHW,Meas Water,FRESH,FRESH_METERED_HD,RETAIL,FRESH_VOLUMETRIC_CHARGE_ZONE_21_RETAIL,21,Cubic metres consumed
+1HDD-MW007,01-Apr-22,01-Apr-23,Meas Water Cons HHR,Meas Water Cons AdVAT HHR,Meas Water,FRESH,FRESH_METERED_HD,WHOLESALE,FRESH_VOLUMETRIC_CHARGE_ZONE_22_WHOLESALE,22,Cubic metres consumed
+1HDD-MW007,01-Apr-23,01-Apr-24,Meas Water Std Chrg HHW,Meas Water Std Chrg AdVAT HHW,Meas Water,FRESH,FRESH_METERED_HD,RETAIL,FRESH_VOLUMETRIC_CHARGE_ZONE_21_RETAIL,21,Cubic metres consumed
