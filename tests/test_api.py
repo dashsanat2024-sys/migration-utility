@@ -112,3 +112,16 @@ def test_create_project_and_run(client):
     audit_resp = client.get(f"/api/runs/{run['id']}/audit")
     assert audit_resp.status_code == 200
     assert len(audit_resp.json()) >= 4
+
+
+def test_get_project_by_slug(client):
+    created = client.post(
+        "/api/projects",
+        json={"name": "Slug Lookup", "slug": "slug-lookup-demo", "target_system": "mock"},
+    ).json()
+    by_slug = client.get("/api/projects/slug-lookup-demo")
+    assert by_slug.status_code == 200
+    assert by_slug.json()["id"] == created["id"]
+    by_uuid = client.get(f"/api/projects/{created['id']}")
+    assert by_uuid.status_code == 200
+

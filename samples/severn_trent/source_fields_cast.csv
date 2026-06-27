@@ -1,0 +1,15 @@
+name,data_type,required,description
+CUST_ACCOUNT_NO,string,true,Legacy CAST account number
+NM_FOR_INDIVIDUAL,string,true,Customer full name
+CUST_TYPE_FLAG,string,true,Legacy customer type (D/B/O/V)
+STEPPED_RATE_FLAG,bool,true,Stepped tariff indicator
+AD_EMAIL,string,false,Customer email address
+NO_TELEPHONE,string,false,Contact telephone
+DT_OF_BIRTH,date,false,Date of birth
+NM_TIT_IND_134,string,false,Title (individual)
+FG_OPEN_COMPLAINT,bool,false,Unresolved complaint flag
+CD_BUSINESS_TYPE,string,false,Business type code
+NO_COMPANY,string,false,Company registration number
+BILL_ADDR_L1,string,false,Billing address line 1
+BILL_POSTCODE,string,false,Billing postcode
+LEGACY_SYSTEM_ID,string,true,Source system identifier for migration

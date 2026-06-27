@@ -10,6 +10,9 @@ from migration_utility.schema.registry import SchemaRegistry
 from migration_utility.schema.target_registry import TargetSchemaRegistry
 
 
+from migration_utility.plugins.registry import DestinationPluginRegistry
+
+
 def get_db_session() -> Generator[Session, None, None]:
     yield from get_db()
 
@@ -28,3 +31,7 @@ def get_preprocessors(request: Request) -> PreProcessorRegistry:
 
 def get_target_registry(request: Request) -> TargetSchemaRegistry:
     return request.app.state.target_registry
+
+
+def get_plugin_registry(request: Request) -> DestinationPluginRegistry:
+    return request.app.state.plugin_registry

@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from migration_utility.api.deps import get_db_session
+from migration_utility.api.deps import get_db_session, get_plugin_registry
 from migration_utility.api.routes.rules import _get_project, _get_rule_set
 from migration_utility.api.schemas import (
     ApplyFieldMappingsRequest,
@@ -12,6 +12,7 @@ from migration_utility.api.schemas import (
     FieldMappingSuggestionRead,
 )
 from migration_utility.fields.service import FieldCatalogService
+from migration_utility.plugins.registry import DestinationPluginRegistry
 
 router = APIRouter(prefix="/projects/{project_id}/fields", tags=["field-catalog"])
 
@@ -91,15 +92,36 @@ async def upload_target_fields(
     return _to_read(catalog)
 
 
-@router.post("/{entity}/suggest-mappings", response_model=list[FieldMappingSuggestionRead])
-def suggest_mappings(
+@router.delete("/{entity}/target", response_model=FieldCatalogRead | None)
+def clear_target_fields(
     project_id: UUID,
     entity: str,
     db: Session = Depends(get_db_session),
 ):
     _get_project(project_id, db)
+    catalog = FieldCatalogService(db).clear_target(project_id, entity)
+    if not catalog:
+        return None
+    return _to_read(catalog)
+
+
+@router.post("/{entity}/suggest-mappings", response_model=list[FieldMappingSuggestionRead])
+def suggest_mappings(
+    project_id: UUID,
+    entity: str,
+    destination_first: bool = Query(default=True),
+    db: Session = Depends(get_db_session),
+    plugin_registry: DestinationPluginRegistry = Depends(get_plugin_registry),
+):
+    project = _get_project(project_id, db)
     try:
-        return FieldCatalogService(db).suggest_mappings(project_id, entity)
+        return FieldCatalogService(db).suggest_mappings(
+            project_id,
+            entity,
+            project=project,
+            plugin_registry=plugin_registry,
+            destination_first=destination_first,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -1,17 +1,19 @@
 import { Link, useLocation } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
+  const isProject = pathname.startsWith('/projects/');
+
+  if (isProject) {
+    return <div className="app-shell project-route">{children}</div>;
+  }
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className="topbar dashboard-topbar">
         <Link to="/" className="brand">
-          <span className="brand-icon">⇄</span>
-          <div>
-            <strong>Migration Utility</strong>
-            <small>Extract · Validate · Transform · Load</small>
-          </div>
+          <BrandLogo size={48} subtitle="Extract · Validate · Transform · Load" />
         </Link>
         <nav className="topnav">
           <Link to="/" className={pathname === '/' ? 'active' : ''}>

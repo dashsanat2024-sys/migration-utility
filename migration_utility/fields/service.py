@@ -7,7 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from migration_utility.datastore.models import FieldCatalog, Project, RuleSet
-from migration_utility.fields.catalog_parser import parse_field_catalog, suggest_field_mappings
+from migration_utility.fields.catalog_parser import (
+    parse_field_catalog,
+    suggest_field_mappings,
+    suggest_schema_mappings,
+)
+from migration_utility.plugins.registry import DestinationPluginRegistry
 from migration_utility.schema.registry import SchemaEntity, SchemaField
 from migration_utility.schema.target_registry import TargetEntity, TargetField
 
@@ -72,13 +77,58 @@ class FieldCatalogService:
         self._db.refresh(catalog)
         return catalog
 
-    def suggest_mappings(self, project_id: UUID, entity: str) -> list[dict[str, Any]]:
+    def clear_target(self, project_id: UUID, entity: str) -> FieldCatalog | None:
+        catalog = self.get(project_id, entity)
+        if not catalog:
+            return None
+        catalog.target_fields = []
+        catalog.target_filename = None
+        self._db.commit()
+        self._db.refresh(catalog)
+        return catalog
+
+    def resolve_destination_fields(
+        self,
+        project: Project,
+        entity: str,
+        plugin_registry: DestinationPluginRegistry,
+    ) -> list[dict[str, Any]]:
+        catalog = self.get(project.id, entity)
+        if catalog and catalog.target_fields:
+            return catalog.target_fields
+        plugin = plugin_registry.resolve_for_project(project)
+        schema = plugin.get_schema(entity)
+        if not schema:
+            raise ValueError(f"Plugin {plugin.id!r} has no schema for entity {entity!r}")
+        return schema.to_catalog_fields()
+
+    def suggest_mappings(
+        self,
+        project_id: UUID,
+        entity: str,
+        *,
+        project: Project | None = None,
+        plugin_registry: DestinationPluginRegistry | None = None,
+        destination_first: bool = False,
+    ) -> list[dict[str, Any]]:
         catalog = self.get(project_id, entity)
         if not catalog or not catalog.source_fields:
             raise ValueError("Upload source fields before suggesting mappings")
-        if not catalog.target_fields:
-            raise ValueError("Upload target fields before suggesting mappings")
-        return suggest_field_mappings(catalog.source_fields, catalog.target_fields)
+
+        target_fields: list[dict[str, Any]] | None = None
+        if catalog.target_fields:
+            target_fields = catalog.target_fields
+        elif project and plugin_registry:
+            target_fields = self.resolve_destination_fields(project, entity, plugin_registry)
+
+        if not target_fields:
+            raise ValueError(
+                "No destination schema available — configure a destination plugin or upload target fields"
+            )
+
+        if destination_first:
+            return suggest_schema_mappings(catalog.source_fields, target_fields)
+        return suggest_field_mappings(catalog.source_fields, target_fields)
 
     def apply_mappings_to_rule_set(
         self,

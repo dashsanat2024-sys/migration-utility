@@ -1,13 +1,21 @@
 name,data_type,required,description
-import_supplier,string,true,Hardcoded supplier identifier (Severn Trent)
-account_number,string,true,Kraken account number (9 digits)
-account_name,string,true,Account display name
-unknown_occupier,bool,false,Unknown occupier flag
-has_open_complaint,bool,false,Open complaint indicator
-company_number,string,false,Company registration number
-business_type,string,false,Business type
-contact_email,string,false,Primary email
-contact_phone,string,false,Primary phone
-date_of_birth,date,false,Date of birth
-customer_title,string,false,Customer title (uppercase)
-customers,array,true,Customer array payload
+number,string,true,Kraken account number (AccountType.number)
+accountType,enum,true,AccountTypeChoices — DOMESTIC/BUSINESS/OCCUPIER/VACANT
+status,enum,true,AccountStatus — ACTIVE/PENDING/DORMANT etc.
+brand,enum,false,BrandChoices — SEVERN_TRENT_WATER/HAFREN_DYFRDWY
+balance,int,true,Balance in minor currency units
+billingName,string,false,Dedicated billing name
+billingEmail,string,false,Billing email
+isOnSteppedTariff,bool,true,Rising Block Tariff flag
+hasActiveWatersureAgreement,bool,true,Watersure social tariff
+hasActiveSocialAgreement,bool,true,Social tariff agreement
+billingAddressLine1,string,false,Legacy billing address line 1
+billingAddressPostcode,string,false,Legacy billing postcode
+address.line1,string,false,Structured address line 1
+address.postcode,string,false,Structured postcode
+isMigrated,bool,false,Migration gain flag
+migrationSource,string,false,Previous system identifier
+preferredSsd,date,false,Preferred supply start date
+billingOptions.isFixed,bool,true,Fixed vs flexible billing cycle
+paymentStatus,enum,false,Use HISTORIC for legacy-imported payments
+consentEventSource,enum,false,MIGRATION or DATA_IMPORT for consent audit

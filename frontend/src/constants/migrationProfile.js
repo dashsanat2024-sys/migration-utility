@@ -216,7 +216,7 @@ export function buildProjectTabs(profile) {
     { id: 'wizard', label: 'Migration Wizard', always: true },
     { id: 'ingest', label: 'Upload & Stage', always: true },
     { id: 'rules', label: 'Rules & Transforms', hidden: features.transform_rules === false },
-    { id: 'mapping', label: 'Data Mapping', always: true },
+    { id: 'mapping', label: 'Schema & Mapping', always: true },
   ];
   if (features.tariff_mapping) {
     tabs.push({ id: 'tariffs', label: 'Tariff Mapping' });

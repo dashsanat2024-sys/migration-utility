@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { TRANSFORM_TYPES, WORKFLOW_ROLES, emptyTransformConfig } from '../constants/migration';
 import TransformConfigEditor from './TransformConfigEditor';
-import FieldCatalogPanel from './FieldCatalogPanel';
+import SchemaMappingPanel from './SchemaMappingPanel';
 import { StatusBadge } from './Layout';
 
 const ROLES = WORKFLOW_ROLES;
@@ -327,7 +327,7 @@ export default function MappingPanel({ project, entities }) {
           Field Mapping Matrix
         </button>
         <button className={subTab === 'catalog' ? 'tab active' : 'tab'} onClick={() => { setSubTab('catalog'); loadRuleSets(); }}>
-          Upload Fields &amp; Map
+          Schema &amp; mapping
         </button>
         <button className={subTab === 'tariffs' ? 'tab active' : 'tab'} onClick={() => setSubTab('tariffs')}>
           Tariff Mapping
@@ -498,7 +498,7 @@ export default function MappingPanel({ project, entities }) {
 
       {subTab === 'catalog' && (
         <div className="card">
-          <FieldCatalogPanel
+          <SchemaMappingPanel
             project={project}
             entity={entity}
             ruleSets={ruleSets}

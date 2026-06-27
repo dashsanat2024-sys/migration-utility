@@ -197,8 +197,13 @@ export const api = {
     form.append('file', file);
     return request(`/projects/${projectId}/fields/${entity}/target`, { method: 'POST', body: form });
   },
-  suggestFieldMappings: (projectId, entity) =>
-    request(`/projects/${projectId}/fields/${entity}/suggest-mappings`, { method: 'POST' }),
+  clearTargetFields: (projectId, entity) =>
+    request(`/projects/${projectId}/fields/${entity}/target`, { method: 'DELETE' }),
+  suggestFieldMappings: (projectId, entity, destinationFirst = true) =>
+    request(
+      `/projects/${projectId}/fields/${entity}/suggest-mappings?destination_first=${destinationFirst}`,
+      { method: 'POST' },
+    ),
   applyFieldMappings: (projectId, entity, ruleSetId, mappings) =>
     request(`/projects/${projectId}/fields/${entity}/apply-mappings/${ruleSetId}`, {
       method: 'POST',
@@ -210,5 +215,16 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+    }),
+
+  listDestinationPlugins: () => request('/destination/plugins'),
+  getDestinationPlugin: (projectId) => request(`/projects/${projectId}/destination/plugin`),
+  getDestinationSchema: (projectId, entity = 'account') =>
+    request(`/projects/${projectId}/destination/schema?entity=${entity}`),
+  swapDestinationPlugin: (projectId, pluginId, confirmOrphan = false) =>
+    request(`/projects/${projectId}/destination/swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plugin_id: pluginId, confirm_orphan: confirmOrphan }),
     }),
 };

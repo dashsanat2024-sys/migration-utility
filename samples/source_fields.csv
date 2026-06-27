@@ -1,6 +1,30 @@
 name,data_type,required,description
-id,string,true,Legacy account identifier
-name,string,true,Account display name
-status,string,true,Account status active/inactive
-email,string,false,Contact email
-postcode,string,false,Service postcode
+id,string,TRUE,Legacy account identifier
+name,string,TRUE,Account display name
+status,string,TRUE,Account status active/inactive
+email,string,FALSE,Contact email
+postcode,string,FALSE,Service postcode
+import_supplier,string,TRUE,Hardcoded supplier identifier (Severn Trent)
+account_number,string,TRUE,Kraken account number (9 digits)
+account_name,string,TRUE,Account display name
+unknown_occupier,bool,FALSE,Unknown occupier flag
+has_open_complaint,bool,FALSE,Open complaint indicator
+company_number,string,FALSE,Company registration number
+business_type,string,FALSE,Business type
+contact_email,string,FALSE,Primary email
+contact_phone,string,FALSE,Primary phone
+date_of_birth,date,FALSE,Date of birth
+customer_title,string,FALSE,Customer title (uppercase)
+customers,array,TRUE,Customer array payload
+NO_ACCOUNT,string,TRUE,TARGET legacy account number
+NM_FOR_INDIVIDUAL,string,TRUE,Customer full name
+FG_PAPERLESS,bool,FALSE,Paperless billing flag
+CD_BILL_PRT_MED_57,string,FALSE,Bill print medium code
+AD_EMAIL,string,FALSE,Customer email address
+NO_TELEPHONE,string,FALSE,Contact telephone
+DT_OF_BIRTH,date,FALSE,Date of birth
+NM_TIT_IND_134,string,FALSE,Title (individual)
+ID_TAX,string,FALSE,Tax identifier
+FG_OPEN_COMPLAINT,bool,FALSE,Unresolved complaint flag
+CD_BUSINESS_TYPE,string,FALSE,Business type code
+NO_COMPANY,string,FALSE,Company registration number

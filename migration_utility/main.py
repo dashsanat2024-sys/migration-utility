@@ -5,10 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from migration_utility import __version__
-from migration_utility.api.routes import candidates, fields, health, ingest, mapping, migration_runs, projects, reconciliation, rules, schema, selection, tariffs
+from migration_utility.api.routes import candidates, destination, fields, health, ingest, mapping, migration_runs, projects, reconciliation, rules, schema, selection, tariffs
 from migration_utility.config import get_settings
 from migration_utility.connectors.registry import build_default_registry
 from migration_utility.ingest.preprocessors import build_default_preprocessors
+from migration_utility.plugins.registry import build_default_plugin_registry
 from migration_utility.schema.registry import build_default_schema_registry
 from migration_utility.schema.target_registry import build_default_target_registry
 
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     schema_registry = build_default_schema_registry()
     target_registry = build_default_target_registry()
+    plugin_registry = build_default_plugin_registry()
 
     app = FastAPI(
         title="Migration Utility",
@@ -51,6 +53,7 @@ def create_app() -> FastAPI:
 
     app.state.schema_registry = schema_registry
     app.state.target_registry = target_registry
+    app.state.plugin_registry = plugin_registry
     app.state.registry = build_default_registry(schema_registry)
     app.state.preprocessors = build_default_preprocessors()
 
@@ -58,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(projects.router, prefix="/api")
     app.include_router(migration_runs.router, prefix="/api")
     app.include_router(schema.router, prefix="/api")
+    app.include_router(destination.router, prefix="/api")
     app.include_router(ingest.router, prefix="/api")
     app.include_router(rules.router, prefix="/api")
     app.include_router(selection.router, prefix="/api")

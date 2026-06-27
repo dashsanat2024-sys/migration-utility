@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from migration_utility.datastore.models import FieldMapping, Project, RuleSet
 from migration_utility.fields.service import FieldCatalogService
+from migration_utility.plugins.registry import DestinationPluginRegistry
 from migration_utility.schema.registry import SchemaRegistry
-from migration_utility.schema.target_registry import TargetSchemaRegistry
+from migration_utility.schema.target_registry import TargetField, TargetSchemaRegistry
 
 
 class MappingMatrixService:
@@ -21,21 +22,51 @@ class MappingMatrixService:
         db: Session,
         source_registry: SchemaRegistry,
         target_registry: TargetSchemaRegistry,
+        plugin_registry: DestinationPluginRegistry | None = None,
     ) -> None:
         self._db = db
         self._source_registry = source_registry
         self._target_registry = target_registry
+        self._plugin_registry = plugin_registry
+
+    def _resolve_target_fields(self, project: Project, entity: str, catalog) -> list:
+        if catalog and catalog.target_fields:
+            return [
+                TargetField(
+                    f["name"],
+                    f.get("data_type", "string"),
+                    required=bool(f.get("required", False)),
+                    description=f.get("description", ""),
+                )
+                for f in catalog.target_fields
+            ]
+        if self._plugin_registry:
+            try:
+                raw = FieldCatalogService(self._db).resolve_destination_fields(
+                    project, entity, self._plugin_registry
+                )
+                return [
+                    TargetField(
+                        f["name"],
+                        f.get("data_type", "string"),
+                        required=bool(f.get("required", False)),
+                        description=f.get("description", ""),
+                    )
+                    for f in raw
+                ]
+            except (ValueError, KeyError):
+                pass
+        target = self._target_registry.get(project.target_system, entity)
+        return target.fields if target else []
 
     def get_matrix(self, project: Project, rule_set: RuleSet) -> dict[str, Any]:
         catalog = FieldCatalogService(self._db).get(project.id, rule_set.entity)
         source = FieldCatalogService.resolve_source_entity(
             catalog, self._source_registry.get(rule_set.entity)
         )
-        target = FieldCatalogService.resolve_target_entity(
-            catalog, self._target_registry.get(project.target_system, rule_set.entity)
-        )
+        target_fields_raw = self._resolve_target_fields(project, rule_set.entity, catalog)
         source_fields = source.fields if source else []
-        target_fields = target.fields if target else []
+        target_fields = target_fields_raw
 
         by_source = {m.source_field: m for m in rule_set.field_mappings if m.source_field}
         by_target = {m.target_field: m for m in rule_set.field_mappings}
@@ -97,11 +128,14 @@ class MappingMatrixService:
             },
             "field_catalog": {
                 "has_source": bool(catalog and catalog.source_fields),
-                "has_target": bool(catalog and catalog.target_fields),
+                "has_target": bool(catalog and catalog.target_fields) or bool(target_fields),
                 "source_filename": catalog.source_filename if catalog else None,
                 "target_filename": catalog.target_filename if catalog else None,
                 "source_count": len(catalog.source_fields) if catalog else 0,
-                "target_count": len(catalog.target_fields) if catalog else 0,
+                "target_count": len(target_fields),
+                "schema_from_plugin": bool(
+                    (not catalog or not catalog.target_fields) and target_fields and self._plugin_registry
+                ),
             },
         }
 

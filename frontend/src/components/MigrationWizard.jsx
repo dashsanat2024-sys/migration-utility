@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { buildWizardSteps, pipelineLabel, labelSourceConnector, labelDestAdapter } from '../constants/migrationProfile';
 import { getProjectProfile, profileSummary } from '../utils/projectProfile';
-import FieldCatalogPanel from './FieldCatalogPanel';
+import SchemaMappingPanel from './SchemaMappingPanel';
 import TariffWizardStep from './TariffWizardStep';
 import TransformRulesStep from './TransformRulesStep';
 import StepChecklist from './StepChecklist';
@@ -239,7 +239,7 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
           {step === 'field_mapping' && (
             <div className="wizard-step-content">
               <div className="card">
-                <FieldCatalogPanel
+                <SchemaMappingPanel
                   project={project}
                   entity={entity}
                   ruleSets={ruleSets}

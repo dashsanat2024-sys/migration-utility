@@ -22,6 +22,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     environment: str | None = None
+    target_adapter_key: str | None = None
     config: dict[str, Any] | None = None
 
 
@@ -103,6 +104,7 @@ class SchemaFieldRead(BaseModel):
     data_type: str
     required: bool
     description: str = ""
+    constraints: dict[str, Any] = Field(default_factory=dict)
 
 
 class SchemaEntityRead(BaseModel):
@@ -280,10 +282,32 @@ class FieldMappingSuggestionRead(BaseModel):
     source_required: bool = False
     target_field: str | None = None
     target_type: str | None = None
+    target_required: bool = False
+    target_description: str = ""
+    target_constraints: dict[str, Any] = Field(default_factory=dict)
     transform_type: str = "copy"
     config: dict[str, Any] = Field(default_factory=dict)
     status: str = "unmapped"
     match_confidence: str = "none"
+
+
+class DestinationPluginRead(BaseModel):
+    id: str
+    label: str
+    version: str
+    adapter_key: str
+    transport: str = "REST API"
+
+
+class DestinationSchemaRead(BaseModel):
+    entity: str
+    description: str = ""
+    fields: list[SchemaFieldRead] = Field(default_factory=list)
+
+
+class SwapDestinationPluginRequest(BaseModel):
+    plugin_id: str = Field(..., min_length=1)
+    confirm_orphan: bool = False
 
 
 class ApplyFieldMappingsRequest(BaseModel):

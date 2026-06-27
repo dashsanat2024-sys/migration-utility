@@ -100,3 +100,23 @@ def test_upload_fields_and_apply_mappings(client):
     assert matrix["field_catalog"]["has_source"] is True
     assert matrix["field_catalog"]["has_target"] is True
     assert matrix["coverage"]["source_total"] == 3
+
+
+def test_clear_target_fields(client):
+    project = client.post(
+        "/api/projects",
+        json={"name": "Clear Target Co", "slug": "clear-target", "target_system": "kraken"},
+    ).json()
+    pid = project["id"]
+
+    tgt = client.post(
+        f"/api/projects/{pid}/fields/account/target",
+        files={"file": ("target_fields.csv", TARGET_CSV, "text/csv")},
+    )
+    assert tgt.status_code == 200
+    assert len(tgt.json()["target_fields"]) == 3
+
+    cleared = client.delete(f"/api/projects/{pid}/fields/account/target")
+    assert cleared.status_code == 200
+    assert cleared.json()["target_fields"] == []
+    assert cleared.json()["target_filename"] is None

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { StatusBadge } from '../components/Layout';
+import ProjectShell from '../components/ProjectShell';
+import SchemaMappingScreen from '../components/SchemaMappingScreen';
 import MigrationWizard from '../components/MigrationWizard';
 import IngestPanel from '../components/IngestPanel';
 import RunsPanel from '../components/RunsPanel';
@@ -11,99 +12,171 @@ import MappingPanel from '../components/MappingPanel';
 import ReconciliationPanel from '../components/ReconciliationPanel';
 import RulesPanel from '../components/RulesPanel';
 import TariffWizardStep from '../components/TariffWizardStep';
-import { buildProjectTabs, labelSourceConnector, labelDestAdapter } from '../constants/migrationProfile';
-import { getProjectProfile, profileSummary } from '../utils/projectProfile';
+import { buildProjectTabs } from '../constants/migrationProfile';
+import { DEFAULT_PROJECT_TAB, isValidProjectTab, projectPath } from '../constants/projectRoutes';
+import { getProjectProfile } from '../utils/projectProfile';
+
+function PanelHeader({ title, subtitle }) {
+  return (
+    <div className="screen-topbar compact">
+      <div>
+        <h1 className="screen-title">{title}</h1>
+        {subtitle && <p className="muted">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
 
 export default function ProjectPage() {
-  const { projectId } = useParams();
+  const { projectRef, legacyTab } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [entities, setEntities] = useState([]);
-  const [tab, setTab] = useState('wizard');
+  const [plugin, setPlugin] = useState(null);
+  const [tab, setTab] = useState(() =>
+    legacyTab && isValidProjectTab(legacyTab) ? legacyTab : DEFAULT_PROJECT_TAB,
+  );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const profile = useMemo(() => (project ? getProjectProfile(project) : null), [project]);
   const tabs = useMemo(() => (profile ? buildProjectTabs(profile) : []), [profile]);
-  const summary = project ? profileSummary(project) : null;
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
+
+  const goToTab = useCallback((tabId) => {
+    setTab(tabId);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const [p, e] = await Promise.all([
-        api.getProject(projectId),
+        api.getProject(projectRef),
         api.listSchemaEntities(),
       ]);
       setProject(p);
       setEntities(e);
+      try {
+        const pl = await api.getDestinationPlugin(p.id);
+        setPlugin(pl);
+      } catch {
+        setPlugin(null);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectRef]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <p className="muted page">Loading project…</p>;
-  if (error) return <div className="alert error page">{error}</div>;
+  // Canonical URL: slug only (no UUID, no /mapping tab segment).
+  useEffect(() => {
+    if (!project?.slug) return;
+    const canonical = projectPath(project.slug);
+    if (projectRef !== project.slug || legacyTab) {
+      navigate(canonical, { replace: true });
+    }
+  }, [project, projectRef, legacyTab, navigate]);
+
+  useEffect(() => {
+    if (!tabIds.length) return;
+    if (!tabIds.includes(tab)) {
+      setTab(tabIds.includes(DEFAULT_PROJECT_TAB) ? DEFAULT_PROJECT_TAB : tabIds[0]);
+    }
+  }, [tabIds, tab]);
+
+  if (loading) {
+    return (
+      <div className="app-grid">
+        <main className="project-main"><p className="muted">Loading project…</p></main>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="app-grid">
+        <main className="project-main"><div className="alert error">{error}</div></main>
+      </div>
+    );
+  }
   if (!project) return null;
 
+  const activeTab = tabIds.includes(tab) ? tab : tabIds[0] || DEFAULT_PROJECT_TAB;
+
   return (
-    <div className="page">
-      <div className="breadcrumb">
-        <Link to="/">Projects</Link>
-        <span>/</span>
-        <span>{project.name}</span>
-      </div>
+    <ProjectShell project={project} activeTab={activeTab} onTabChange={goToTab} plugin={plugin}>
+      {activeTab === 'mapping' && (
+        <SchemaMappingScreen
+          project={project}
+          entities={entities}
+          onNavigateTab={goToTab}
+        />
+      )}
 
-      <div className="page-header">
-        <div>
-          <h1>{project.name}</h1>
-          <p className="muted mono">
-            {summary.typeLabel} · {summary.industryLabel} · {summary.approachLabel} · {project.environment}
-          </p>
-        </div>
-        <div className="connector-pills">
-          <span className="pill">{labelSourceConnector(project.source_connector_key)} → {labelDestAdapter(project.target_adapter_key)}</span>
-        </div>
-      </div>
+      {activeTab === 'wizard' && (
+        <>
+          <PanelHeader title="Migration Wizard" subtitle="Guided setup from extract to run." />
+          <MigrationWizard project={project} entities={entities} onRefresh={load} />
+        </>
+      )}
 
-      <div className="tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            className={tab === t.id ? 'tab active' : 'tab'}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {activeTab === 'ingest' && (
+        <>
+          <PanelHeader title="Extract & Stage" subtitle="Upload source extract files and review staging stats." />
+          <IngestPanel project={project} entities={entities} onRefresh={load} />
+        </>
+      )}
 
-      {tab === 'wizard' && (
-        <MigrationWizard project={project} entities={entities} onRefresh={load} />
+      {activeTab === 'rules' && (
+        <>
+          <PanelHeader title="Transform Rules" subtitle="Validation rules and custom transforms." />
+          <RulesPanel project={project} entities={entities} />
+        </>
       )}
-      {tab === 'ingest' && (
-        <IngestPanel project={project} entities={entities} onRefresh={load} />
+
+      {activeTab === 'tariffs' && (
+        <>
+          <PanelHeader title="Tariff Mapping" subtitle="Map source products and rate bands to destination codes." />
+          <div className="card"><TariffWizardStep project={project} /></div>
+        </>
       )}
-      {tab === 'selection' && (
-        <CandidatesPanel project={project} entities={entities} />
+
+      {activeTab === 'selection' && (
+        <>
+          <PanelHeader title="Candidate Selection" subtitle="Configure which records are included in each run." />
+          <CandidatesPanel project={project} entities={entities} />
+        </>
       )}
-      {tab === 'rules' && <RulesPanel project={project} entities={entities} />}
-      {tab === 'mapping' && <MappingPanel project={project} entities={entities} />}
-      {tab === 'tariffs' && (
-        <div className="card"><TariffWizardStep project={project} /></div>
+
+      {activeTab === 'runs' && (
+        <>
+          <PanelHeader title="Migration Runs" subtitle="Execute and monitor migration batches." />
+          <RunsPanel project={project} entities={entities} />
+        </>
       )}
-      {tab === 'runs' && <RunsPanel project={project} entities={entities} />}
-      {tab === 'reconciliation' && (
-        <ReconciliationPanel project={project} entities={entities} />
+
+      {activeTab === 'reconciliation' && (
+        <>
+          <PanelHeader title="Reconciliation" subtitle="Funnel, variance, and BI export." />
+          <ReconciliationPanel project={project} entities={entities} />
+        </>
       )}
-      {tab === 'errors' && <ErrorsPanel project={project} />}
-    </div>
+
+      {activeTab === 'errors' && (
+        <>
+          <PanelHeader title="Ingest Errors" subtitle="Review and reprocess failed rows." />
+          <ErrorsPanel project={project} />
+        </>
+      )}
+
+      {activeTab === 'matrix' && (
+        <MappingPanel project={project} entities={entities} />
+      )}
+    </ProjectShell>
   );
 }
-
-export { StatusBadge };

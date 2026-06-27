@@ -3,10 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from migration_utility.api.deps import get_db_session, get_schema_registry, get_target_registry
+from migration_utility.api.deps import get_db_session, get_plugin_registry, get_schema_registry, get_target_registry
 from migration_utility.api.routes.rules import _get_project, _get_rule_set
 from migration_utility.api.schemas import MappingApprovalRead, MappingMatrixRead, MappingMatrixUpdate
 from migration_utility.mapping.service import MappingMatrixService
+from migration_utility.plugins.registry import DestinationPluginRegistry
 from migration_utility.rules.service import RuleSetService
 from migration_utility.schema.registry import SchemaRegistry
 from migration_utility.schema.target_registry import TargetSchemaRegistry
@@ -16,6 +17,15 @@ from migration_utility.workflow.service import WorkflowService
 router = APIRouter(prefix="/projects/{project_id}/mapping", tags=["mapping"])
 
 
+def _matrix_service(
+    db: Session,
+    source_registry: SchemaRegistry,
+    target_registry: TargetSchemaRegistry,
+    plugin_registry: DestinationPluginRegistry,
+) -> MappingMatrixService:
+    return MappingMatrixService(db, source_registry, target_registry, plugin_registry)
+
+
 @router.get("/rules/{rule_set_id}/matrix", response_model=MappingMatrixRead)
 def get_mapping_matrix(
     project_id: UUID,
@@ -23,10 +33,13 @@ def get_mapping_matrix(
     db: Session = Depends(get_db_session),
     source_registry: SchemaRegistry = Depends(get_schema_registry),
     target_registry: TargetSchemaRegistry = Depends(get_target_registry),
+    plugin_registry: DestinationPluginRegistry = Depends(get_plugin_registry),
 ):
     project = _get_project(project_id, db)
     rule_set = _get_rule_set(project_id, rule_set_id, db)
-    return MappingMatrixService(db, source_registry, target_registry).get_matrix(project, rule_set)
+    return _matrix_service(db, source_registry, target_registry, plugin_registry).get_matrix(
+        project, rule_set
+    )
 
 
 @router.put("/rules/{rule_set_id}/matrix", response_model=MappingMatrixRead)
@@ -37,10 +50,11 @@ def update_mapping_matrix(
     db: Session = Depends(get_db_session),
     source_registry: SchemaRegistry = Depends(get_schema_registry),
     target_registry: TargetSchemaRegistry = Depends(get_target_registry),
+    plugin_registry: DestinationPluginRegistry = Depends(get_plugin_registry),
 ):
     project = _get_project(project_id, db)
     rule_set = _get_rule_set(project_id, rule_set_id, db)
-    service = MappingMatrixService(db, source_registry, target_registry)
+    service = _matrix_service(db, source_registry, target_registry, plugin_registry)
     try:
         rule_set = service.upsert_mappings(rule_set, body.rows)
     except ValueError as exc:

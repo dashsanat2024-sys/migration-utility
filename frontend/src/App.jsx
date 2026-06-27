@@ -8,7 +8,9 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/projects/:projectId" element={<ProjectPage />} />
+        {/* Legacy tab segment in URL is accepted once, then stripped to slug-only path */}
+        <Route path="/projects/:projectRef/:legacyTab" element={<ProjectPage />} />
+        <Route path="/projects/:projectRef" element={<ProjectPage />} />
       </Routes>
     </Layout>
   );

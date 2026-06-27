@@ -10,6 +10,8 @@ from migration_utility.core.enums import AuditAction
 from migration_utility.datastore.models import Project
 from migration_utility.services.audit import write_audit
 
+from migration_utility.api.routes.project_lookup import resolve_project
+
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
@@ -49,27 +51,24 @@ def list_projects(db: Session = Depends(get_db_session)) -> list[Project]:
     return list(db.scalars(select(Project).order_by(Project.created_at.desc())))
 
 
-@router.get("/{project_id}", response_model=ProjectRead)
-def get_project(project_id: UUID, db: Session = Depends(get_db_session)) -> Project:
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
+@router.get("/{project_ref}", response_model=ProjectRead)
+def get_project(project_ref: str, db: Session = Depends(get_db_session)) -> Project:
+    return resolve_project(project_ref, db)
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
 def update_project(
     project_id: UUID, body: ProjectUpdate, db: Session = Depends(get_db_session)
 ) -> Project:
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = resolve_project(str(project_id), db)
     if body.name is not None:
         project.name = body.name
     if body.description is not None:
         project.description = body.description
     if body.environment is not None:
         project.environment = body.environment
+    if body.target_adapter_key is not None:
+        project.target_adapter_key = body.target_adapter_key
     if body.config is not None:
         project.config = body.config
     write_audit(

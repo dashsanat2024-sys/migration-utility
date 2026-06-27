@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { StatusBadge } from '../components/Layout';
 import ProjectForm from '../components/ProjectForm';
-import { getProjectProfile } from '../utils/projectProfile';
+import { projectPath } from '../constants/projectRoutes';
 import { getMigrationType, getIndustry, getApproach } from '../constants/migrationProfile';
+import { getProjectProfile } from '../utils/projectProfile';
 
 export default function Dashboard() {
   const [health, setHealth] = useState(null);
@@ -82,7 +83,7 @@ export default function Dashboard() {
           {projects.map((p) => {
             const profile = getProjectProfile(p);
             return (
-              <Link key={p.id} to={`/projects/${p.id}`} className="project-card">
+              <Link key={p.id} to={projectPath(p.slug)} className="project-card">
                 <div className="project-card-head">
                   <h3>{p.name}</h3>
                   <span className="env-tag">{p.environment}</span>
