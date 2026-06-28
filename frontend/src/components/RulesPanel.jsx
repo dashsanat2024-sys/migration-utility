@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import {
   VALIDATION_RULE_TYPES,
   TRANSFORM_TYPES,
@@ -15,6 +16,7 @@ const EMPTY_MAPPING = { source_field: '', target_field: '', transform_type: 'cop
 const EMPTY_RULE_SET = { name: '', description: '' };
 
 export default function RulesPanel({ project, entities }) {
+  const { user, authRequired } = useAuth();
   const [entity, setEntity] = useState(entities[0] || 'account');
   const [ruleSets, setRuleSets] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -29,6 +31,13 @@ export default function RulesPanel({ project, entities }) {
   const [newMapping, setNewMapping] = useState(EMPTY_MAPPING);
   const [role, setRole] = useState('mapping_lead');
   const [actor, setActor] = useState('demo.user');
+
+  useEffect(() => {
+    if (user) {
+      setRole(user.role);
+      setActor(user.display_name);
+    }
+  }, [user]);
 
   const loadRuleSets = useCallback(async () => {
     const data = await api.listRuleSets(project.id, entity);
@@ -195,18 +204,27 @@ export default function RulesPanel({ project, entities }) {
               ))}
             </select>
           </label>
-          <label>
-            Workflow role
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              {WORKFLOW_ROLES.map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Actor
-            <input value={actor} onChange={(e) => setActor(e.target.value)} />
-          </label>
+          {!authRequired || !user ? (
+            <>
+              <label>
+                Workflow role
+                <select value={role} onChange={(e) => setRole(e.target.value)}>
+                  {WORKFLOW_ROLES.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Actor
+                <input value={actor} onChange={(e) => setActor(e.target.value)} />
+              </label>
+            </>
+          ) : (
+            <label>
+              Signed in as
+              <input value={`${user.display_name} (${user.role})`} readOnly />
+            </label>
+          )}
         </div>
 
         {showNewSet && (

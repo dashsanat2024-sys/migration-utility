@@ -8,8 +8,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from migration_utility.core.enums import IngestFileStatus
-from migration_utility.datastore.models import IngestError, IngestFile, Project
+from migration_utility.datastore.models import DataProfile, IngestError, IngestFile, Project
 from migration_utility.datastore.session import get_engine
+from migration_utility.exceptions.service import ExceptionQueueService
+from migration_utility.profiling.service import profile_records
 from migration_utility.ingest.landing import save_upload
 from migration_utility.ingest.parsers import ParseError, detect_format, parse_file
 from migration_utility.ingest.preprocessors import PreProcessorRegistry
@@ -90,6 +92,19 @@ class IngestService:
             records = self._preprocessors.run(ingest_file.entity, records)
             valid, errors = validate_records(entity_schema, records)
 
+            profile = profile_records(records, entity=ingest_file.entity)
+            self._db.add(
+                DataProfile(
+                    project_id=project.id,
+                    ingest_file_id=ingest_file.id,
+                    entity=ingest_file.entity,
+                    row_count=profile["row_count"],
+                    column_stats=profile["column_stats"],
+                    anomalies=profile["anomalies"],
+                    summary=profile["summary"],
+                )
+            )
+
             table_name = staging_table_name(project.slug, ingest_file.entity)
             table = ensure_staging_table(self.engine, table_name, entity_schema)
 
@@ -109,17 +124,19 @@ class IngestService:
                 batch_id=batch_id,
             )
 
+            exc_svc = ExceptionQueueService(self._db)
             for row_number, raw, reason in errors:
-                self._db.add(
-                    IngestError(
-                        project_id=project.id,
-                        ingest_file_id=ingest_file.id,
-                        entity=ingest_file.entity,
-                        row_number=row_number,
-                        raw_payload=raw,
-                        error_reason=reason,
-                    )
+                err = IngestError(
+                    project_id=project.id,
+                    ingest_file_id=ingest_file.id,
+                    entity=ingest_file.entity,
+                    row_number=row_number,
+                    raw_payload=raw,
+                    error_reason=reason,
                 )
+                self._db.add(err)
+                self._db.flush()
+                exc_svc.sync_from_ingest_error(err)
 
             ingest_file.staging_table = table_name
             ingest_file.staged_count = staged

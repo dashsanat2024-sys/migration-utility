@@ -10,6 +10,8 @@ export default function IngestPanel({ project, entities, onRefresh }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [profileFileId, setProfileFileId] = useState(null);
 
   const load = async () => {
     try {
@@ -39,6 +41,15 @@ export default function IngestPanel({ project, entities, onRefresh }) {
       setSuccess(
         `Uploaded ${result.original_filename}: ${result.staged_count} staged, ${result.error_count} errors`,
       );
+      if (result.id) {
+        try {
+          const p = await api.getIngestFileProfile(project.id, result.id);
+          setProfile(p);
+          setProfileFileId(result.id);
+        } catch {
+          setProfile(null);
+        }
+      }
       setFile(null);
       e.target.reset();
       load();
@@ -47,6 +58,18 @@ export default function IngestPanel({ project, entities, onRefresh }) {
       setError(err.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const showProfile = async (fileId) => {
+    setProfileFileId(fileId);
+    setError('');
+    try {
+      const p = await api.getIngestFileProfile(project.id, fileId);
+      setProfile(p);
+    } catch (err) {
+      setProfile(null);
+      setError(err.message);
     }
   };
 
@@ -62,6 +85,64 @@ export default function IngestPanel({ project, entities, onRefresh }) {
             <span className="stat-label">Staged rows</span>
             <strong>{stats.row_count}</strong>
           </div>
+        </div>
+      )}
+
+      {profile && (
+        <div className="card profile-card">
+          <h2>Data profile {profileFileId ? `(file ${profileFileId.slice(0, 8)}…)` : ''}</h2>
+          <div className="stats-row compact">
+            <div className="stat-card">
+              <span className="stat-label">Rows</span>
+              <strong>{profile.row_count}</strong>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Columns</span>
+              <strong>{profile.summary?.column_count ?? profile.column_stats?.length ?? 0}</strong>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Anomalies</span>
+              <strong>{profile.summary?.anomaly_count ?? profile.anomalies?.length ?? 0}</strong>
+            </div>
+          </div>
+          {profile.anomalies?.length > 0 && (
+            <>
+              <h3>Anomalies</h3>
+              <ul className="anomaly-list">
+                {profile.anomalies.map((a, idx) => (
+                  <li key={idx} className={`anomaly-${a.severity}`}>
+                    <strong>{a.severity}</strong> — {a.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {profile.column_stats?.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Column</th>
+                    <th>Type</th>
+                    <th>Null %</th>
+                    <th>Distinct</th>
+                    <th>Samples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {profile.column_stats.map((col) => (
+                    <tr key={col.column}>
+                      <td><code>{col.column}</code></td>
+                      <td>{col.inferred_type}</td>
+                      <td>{col.null_pct}%</td>
+                      <td>{col.distinct_count}</td>
+                      <td><code>{(col.sample_values || []).join(', ')}</code></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -112,6 +193,7 @@ export default function IngestPanel({ project, entities, onRefresh }) {
                   <th>Rows</th>
                   <th>Staged</th>
                   <th>Errors</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -124,6 +206,11 @@ export default function IngestPanel({ project, entities, onRefresh }) {
                     <td>{f.total_rows}</td>
                     <td>{f.staged_count}</td>
                     <td>{f.error_count}</td>
+                    <td>
+                      <button type="button" className="btn small" onClick={() => showProfile(f.id)}>
+                        Profile
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

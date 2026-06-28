@@ -10,6 +10,7 @@ class PipelineStage(StrEnum):
 
 class RunStatus(StrEnum):
     PENDING = "pending"
+    QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"

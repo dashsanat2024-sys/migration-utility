@@ -33,6 +33,10 @@ class MigrationRun(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    progress_pct: Mapped[int] = mapped_column(default=0)
+    progress_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    checkpoint: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    execution_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="sync")
 
     project: Mapped["Project"] = relationship(back_populates="runs")
     batches: Mapped[list["Batch"]] = relationship(

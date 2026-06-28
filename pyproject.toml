@@ -1,6 +1,6 @@
 [project]
 name = "migration-utility"
-version = "0.5.0"
+version = "0.9.0"
 description = "Generic data migration engine — Phase 0 foundation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,6 +15,8 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "python-multipart>=0.0.20",
     "mangum>=0.19.0",
+    "pyjwt>=2.8.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

@@ -19,6 +19,7 @@ The product uses **vendor-neutral language** in the UI (source / destination) wh
 
 See also:
 
+- [FUNCTIONAL_SPECIFICATION.md](./FUNCTIONAL_SPECIFICATION.md) — functional spec, architecture diagrams, requirements
 - [PLUGIN_SCHEMA_DESIGN.md](./PLUGIN_SCHEMA_DESIGN.md) — plugin architecture rationale
 - [kraken-schema-reference.md](../kraken-schema-reference.md) — real Kraken ST Water field reference
 - [target_cmp_data_dictionary.md](../target_cmp_data_dictionary.md) — fictional Target/CMP legacy extract for QA

@@ -1249,6 +1249,42 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg);
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.login-card h1 { margin: 0.5rem 0 0; font-family: var(--display); }
+.link-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.link-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.run-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.anomaly-list { margin: 0.5rem 0 1rem; padding-left: 1.25rem; }
+.anomaly-high { color: var(--error); }
+.anomaly-medium { color: var(--warning); }
+.anomaly-low { color: var(--muted); }
+.exception-detail { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.action-cell { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.selected-row { background: var(--brand-tint); }
+
 /* Loading states */
 .loading-state {
   display: flex;

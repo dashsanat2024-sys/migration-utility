@@ -1,4 +1,5 @@
 from migration_utility.datastore.models.audit_log import AuditLog
+from migration_utility.datastore.models.enterprise import DataProfile, ExceptionItem, User
 from migration_utility.datastore.models.batch import Batch
 from migration_utility.datastore.models.candidate import Candidate
 from migration_utility.datastore.models.field_catalog import FieldCatalog
@@ -16,6 +17,8 @@ __all__ = [
     "AuditLog",
     "Batch",
     "Candidate",
+    "DataProfile",
+    "ExceptionItem",
     "FieldCatalog",
     "FieldMapping",
     "IngestError",
@@ -29,5 +32,6 @@ __all__ = [
     "SelectionProfile",
     "TariffMapping",
     "TariffMappingSet",
+    "User",
     "ValidationRule",
 ]

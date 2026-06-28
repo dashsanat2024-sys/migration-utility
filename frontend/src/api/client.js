@@ -1,4 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const TOKEN_KEY = 'mu_auth_token';
+
+let authToken = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+
+export function getAuthToken() {
+  return authToken;
+}
+
+export function setAuthToken(token) {
+  authToken = token;
+  if (typeof localStorage === 'undefined') return;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
 
 async function readJsonBody(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -17,7 +31,11 @@ async function readJsonBody(response) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, options);
+  const headers = { ...(options.headers || {}) };
+  if (authToken && !headers.Authorization) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -39,6 +57,16 @@ async function request(path, options = {}) {
 export const api = {
   health: () => request('/health'),
   healthLive: () => request('/health/live'),
+
+  authStatus: () => request('/auth/status'),
+  login: (email, password) =>
+    request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }),
+  me: () => request('/auth/me'),
+  listUsers: () => request('/auth/users'),
 
   listProjects: () => request('/projects'),
   createProject: (body) =>
@@ -75,6 +103,34 @@ export const api = {
     request(`/projects/${projectId}/ingest/errors/${errorId}/reprocess`, { method: 'POST' }),
   stagingStats: (projectId, entity) =>
     request(`/projects/${projectId}/ingest/staging/${entity}/stats`),
+  getIngestFileProfile: (projectId, fileId) =>
+    request(`/projects/${projectId}/ingest/files/${fileId}/profile`),
+  listProjectProfiles: (projectId) => request(`/projects/${projectId}/profiles`),
+
+  listExceptions: (projectId, status) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request(`/projects/${projectId}/exceptions${q}`);
+  },
+  syncIngestExceptions: (projectId) =>
+    request(`/projects/${projectId}/exceptions/sync-ingest`, { method: 'POST' }),
+  assignException: (projectId, exceptionId, userId) =>
+    request(`/projects/${projectId}/exceptions/${exceptionId}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    }),
+  overrideException: (projectId, exceptionId, overridePayload, note = '') =>
+    request(`/projects/${projectId}/exceptions/${exceptionId}/override`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ override_payload: overridePayload, note }),
+    }),
+  resolveException: (projectId, exceptionId, note = '') =>
+    request(`/projects/${projectId}/exceptions/${exceptionId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    }),
 
   listRuns: (projectId) => request(`/projects/${projectId}/runs`),
   createRun: (projectId, body) =>
@@ -84,6 +140,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getRun: (runId) => request(`/runs/${runId}`),
+  getRunProgress: (runId) => request(`/runs/${runId}/progress`),
+  resumeRun: (runId) => request(`/runs/${runId}/resume`, { method: 'POST' }),
   getRunAudit: (runId) => request(`/runs/${runId}/audit`),
   listRunLoads: (runId) => request(`/runs/${runId}/loads`),
   getRunLoadSummary: (runId) => request(`/runs/${runId}/loads/summary`),

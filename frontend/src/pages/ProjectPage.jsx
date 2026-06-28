@@ -7,6 +7,7 @@ import MigrationWizard from '../components/MigrationWizard';
 import IngestPanel from '../components/IngestPanel';
 import RunsPanel from '../components/RunsPanel';
 import ErrorsPanel from '../components/ErrorsPanel';
+import ExceptionQueuePanel from '../components/ExceptionQueuePanel';
 import CandidatesPanel from '../components/CandidatesPanel';
 import MappingPanel from '../components/MappingPanel';
 import ReconciliationPanel from '../components/ReconciliationPanel';
@@ -175,8 +176,14 @@ export default function ProjectPage() {
 
       {activeTab === 'errors' && (
         <>
-          <PanelHeader title="Ingest Errors" subtitle="Review and reprocess failed rows." />
-          <ErrorsPanel project={project} />
+          <PanelHeader
+            title="Errors & Exceptions"
+            subtitle="Review ingest failures and manage the human-in-the-loop exception queue."
+          />
+          <div className="panel-stack">
+            <ErrorsPanel project={project} />
+            <ExceptionQueuePanel project={project} />
+          </div>
         </>
       )}
 

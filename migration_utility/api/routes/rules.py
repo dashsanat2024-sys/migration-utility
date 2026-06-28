@@ -16,7 +16,8 @@ from migration_utility.api.schemas import (
     ValidationRuleRead,
     WorkflowTransition,
 )
-from migration_utility.datastore.models import Project, RuleSet
+from migration_utility.auth.deps import get_optional_user
+from migration_utility.datastore.models import Project, RuleSet, User
 from migration_utility.rules.engine import TransformEngine
 from migration_utility.rules.loader import RuleLoader
 from migration_utility.rules.service import RuleSetService
@@ -147,6 +148,7 @@ def transition_workflow(
     rule_set_id: UUID,
     body: WorkflowTransition,
     db: Session = Depends(get_db_session),
+    user: User | None = Depends(get_optional_user),
 ) -> RuleSet:
     rule_set = _get_rule_set(project_id, rule_set_id, db)
     project = _get_project(project_id, db)
@@ -155,12 +157,19 @@ def transition_workflow(
         role = MappingRole(body.role)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid state or role") from exc
+    actor = body.actor
+    if user:
+        actor = user.display_name
+        try:
+            role = MappingRole(user.role)
+        except ValueError:
+            pass
     try:
         updated = RuleSetService(db).transition(
             rule_set,
             state,
             project=project,
-            actor=body.actor,
+            actor=actor,
             role=role,
             comment=body.comment,
         )

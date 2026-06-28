@@ -225,7 +225,7 @@ export function buildProjectTabs(profile) {
     { id: 'selection', label: 'Candidate Selection' },
     { id: 'runs', label: 'Migration Runs' },
     { id: 'reconciliation', label: 'Reconciliation' },
-    { id: 'errors', label: 'Ingest Errors' },
+    { id: 'errors', label: 'Errors & Exceptions' },
   );
   return tabs.filter((t) => t.always || !t.hidden);
 }

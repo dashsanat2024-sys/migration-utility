@@ -7,16 +7,25 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from migration_utility.config import get_settings
 from migration_utility.connectors.registry import ConnectorRegistry
 from migration_utility.core.enums import AuditAction, BatchStatus, CandidateStatus, RunStatus
 from migration_utility.core.events import EventBus, RunContext
 from migration_utility.core.pipeline import MigrationPipeline
 from migration_utility.datastore.models import Batch, MigrationRun, Project
+from migration_utility.exceptions.service import ExceptionQueueService
 from migration_utility.rules.loader import RuleLoader
 from migration_utility.selection.service import CandidateService
 from migration_utility.services.load_records import LoadRecordService
 
 logger = logging.getLogger(__name__)
+
+_STAGE_PROGRESS = {
+    "ingest": (10, "Ingesting staged records"),
+    "validate": (40, "Validating records"),
+    "transform": (70, "Transforming records"),
+    "load": (95, "Loading to destination"),
+}
 
 
 def _utcnow() -> datetime:
@@ -36,6 +45,8 @@ class RunService:
     def execute_run(self, run: MigrationRun, project: Project) -> MigrationRun:
         run.status = RunStatus.RUNNING.value
         run.started_at = _utcnow()
+        run.progress_pct = 0
+        run.progress_message = "Run started"
         run.error_message = None
         write_audit(
             self._db,
@@ -82,7 +93,7 @@ class RunService:
             batch.status = BatchStatus.RUNNING.value
             self._db.flush()
 
-            batch_config = {**merged_config, "filter_batch_id": str(batch.id)}
+            batch_config = {**merged_config, "filter_batch_id": str(batch.id), "chunk_size": get_settings().run_chunk_size}
 
             if use_selection:
                 try:
@@ -128,6 +139,23 @@ class RunService:
                 },
             )
             result = pipeline.run(ctx)
+
+            failures = ctx.metadata.get("validation_failures") or []
+            if failures:
+                exc_svc = ExceptionQueueService(self._db)
+                for idx, item in enumerate(failures[:200]):
+                    if isinstance(item, tuple) and len(item) == 2:
+                        invalid, reason = item
+                    else:
+                        continue
+                    exc_svc.create_validation_exception(
+                        project_id=project.id,
+                        run_id=run.id,
+                        entity=entity,
+                        row_number=idx + 1,
+                        payload=invalid if isinstance(invalid, dict) else {"value": invalid},
+                        error_reason=str(reason),
+                    )
 
             load_results = ctx.metadata.get("load_results")
             load_summary = None
@@ -182,12 +210,20 @@ class RunService:
                 run.status = RunStatus.FAILED.value
                 run.error_message = result.error
                 run.completed_at = _utcnow()
+                run.progress_message = "Run failed"
                 run.result_summary = {"batches_completed": batch.batch_number, "failed": True}
+                run.checkpoint = {
+                    **(run.checkpoint or {}),
+                    "last_batch": batch.batch_number,
+                    "resume_allowed": True,
+                }
                 self._db.commit()
                 return run
 
         run.status = RunStatus.COMPLETED.value
         run.completed_at = _utcnow()
+        run.progress_pct = 100
+        run.progress_message = "Run completed"
         run.result_summary = {
             "batches_completed": len(run.batches),
             "total_processed": sum(
@@ -228,6 +264,12 @@ class RunService:
             ]
 
     def _on_pipeline_event(self, run: MigrationRun, project: Project, event) -> None:
+        pct, msg = _STAGE_PROGRESS.get(event.stage, (run.progress_pct, event.stage))
+        if event.status == "completed":
+            run.progress_pct = pct
+            run.progress_message = msg
+        elif event.status == "started" and event.stage in _STAGE_PROGRESS:
+            run.progress_message = f"Starting {event.stage}"
         write_audit(
             self._db,
             entity_type="pipeline",

@@ -8,6 +8,7 @@ from migration_utility.config import get_settings
 from migration_utility.connectors.base import TargetAdapter
 from migration_utility.connectors.target_validation import validate_against_target
 from migration_utility.core.events import RunContext
+from migration_utility.network.http_client import post_json
 
 
 class KrakenClient:
@@ -27,7 +28,13 @@ class KrakenClient:
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         if self._mock:
             return self._mock_import(records, project_id=project_id, environment=environment)
-        raise NotImplementedError("Live Kraken API calls require kraken_mock_mode=false and credentials")
+        url = f"{self._base_url.rstrip('/')}/accounts/import"
+        payload = {"projectId": project_id, "environment": environment, "records": records}
+        response = post_json(url, payload)
+        if response.status_code >= 400:
+            return [], [{"_error": response.text, "status_code": response.status_code}]
+        body = response.json()
+        return body.get("loaded", records), body.get("failed", [])
 
     def import_products(
         self,
@@ -46,7 +53,13 @@ class KrakenClient:
                 for record in records
             ]
             return loaded, []
-        raise NotImplementedError("Live Kraken product import not configured")
+        url = f"{self._base_url.rstrip('/')}/products/import"
+        payload = {"projectId": project_id, "records": records}
+        response = post_json(url, payload)
+        if response.status_code >= 400:
+            return [], [{"_error": response.text, "status_code": response.status_code}]
+        body = response.json()
+        return body.get("loaded", []), body.get("failed", [])
 
     def _mock_import(
         self,

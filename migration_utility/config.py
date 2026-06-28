@@ -27,6 +27,28 @@ class Settings(BaseSettings):
     sap_api_url: str = "https://sap.example.local/idoc"
     sap_mock_mode: bool = True
 
+    # Auth (P1)
+    auth_enabled: bool = False
+    auth_secret: str = "change-me-in-production"
+    auth_token_hours: int = 12
+    auth_seed_email: str = "admin@arthavi.local"
+    auth_seed_password: str = "admin123"
+    auth_seed_name: str = "Migration Admin"
+
+    # Runner / deployment (P0)
+    runner_mode: str = "api"  # api | worker
+    async_runs_enabled: bool = True
+    run_chunk_size: int = 500
+    worker_poll_seconds: float = 2.0
+
+    # Corporate network (P0)
+    http_proxy: str = ""
+    https_proxy: str = ""
+    client_cert_path: str = ""
+    client_key_path: str = ""
+    ca_bundle_path: str = ""
+    http_timeout_seconds: float = 60.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

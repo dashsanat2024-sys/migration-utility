@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from migration_utility import __version__
-from migration_utility.api.routes import candidates, destination, fields, health, ingest, mapping, migration_runs, projects, reconciliation, rules, schema, selection, tariffs, workspace
+from migration_utility.api.routes import auth, candidates, destination, exceptions, fields, health, ingest, mapping, migration_runs, profiling, projects, reconciliation, rules, schema, selection, tariffs, workspace
+from migration_utility.auth.service import ensure_seed_admin
 from migration_utility.config import get_settings
 from migration_utility.connectors.registry import build_default_registry
 from migration_utility.ingest.preprocessors import build_default_preprocessors
@@ -27,6 +28,20 @@ async def lifespan(app: FastAPI):
         app.state.registry.list_targets(),
     )
     logger.info("Landing zone: %s", settings.landing_zone_path)
+    if settings.auth_enabled:
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+
+        from migration_utility.datastore.session import get_session_factory
+
+        db = get_session_factory()()
+        try:
+            ensure_seed_admin(db)
+            logger.info("Auth enabled — seed admin ensured")
+        except (ProgrammingError, OperationalError) as exc:
+            db.rollback()
+            logger.warning("Auth seed skipped — run alembic upgrade head: %s", exc)
+        finally:
+            db.close()
     yield
 
 
@@ -58,6 +73,7 @@ def create_app() -> FastAPI:
     app.state.preprocessors = build_default_preprocessors()
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(auth.router, prefix="/api")
     app.include_router(projects.router, prefix="/api")
     app.include_router(migration_runs.router, prefix="/api")
     app.include_router(schema.router, prefix="/api")
@@ -70,6 +86,8 @@ def create_app() -> FastAPI:
     app.include_router(fields.router, prefix="/api")
     app.include_router(tariffs.router, prefix="/api")
     app.include_router(reconciliation.router, prefix="/api")
+    app.include_router(exceptions.router, prefix="/api")
+    app.include_router(profiling.router, prefix="/api")
     app.include_router(workspace.router, prefix="/api")
 
     return app

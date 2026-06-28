@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session, selectinload
 from migration_utility.api.deps import get_db_session, get_registry
 from migration_utility.api.schemas import AuditLogRead, LoadRecordRead, LoadSummaryRead, MigrationRunCreate, MigrationRunRead
 from migration_utility.connectors.registry import ConnectorRegistry
-from migration_utility.core.enums import AuditAction
+from migration_utility.config import get_settings
+from migration_utility.core.enums import AuditAction, RunStatus
 from migration_utility.datastore.models import AuditLog, Batch, MigrationRun, Project
 from migration_utility.services.audit import write_audit
 from migration_utility.services.load_records import LoadRecordService
@@ -71,6 +72,16 @@ def create_migration_run(
     db.commit()
     db.refresh(run)
 
+    settings = get_settings()
+    async_mode = body.run_config.get("async", settings.async_runs_enabled)
+    if async_mode and settings.runner_mode == "worker":
+        run.status = RunStatus.QUEUED.value
+        run.execution_mode = "async"
+        run.progress_message = "Queued for worker"
+        db.commit()
+        db.refresh(run)
+        return _load_run(db, run.id)
+
     service = RunService(db, registry)
     run = service.execute_run(run, project)
     return _load_run(db, run.id)
@@ -98,6 +109,51 @@ def get_migration_run(run_id: UUID, db: Session = Depends(get_db_session)) -> Mi
     if not run:
         raise HTTPException(status_code=404, detail="Migration run not found")
     return run
+
+
+@router.get("/runs/{run_id}/progress")
+def get_run_progress(run_id: UUID, db: Session = Depends(get_db_session)) -> dict:
+    run = db.get(MigrationRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Migration run not found")
+    return {
+        "run_id": str(run.id),
+        "status": run.status,
+        "progress_pct": run.progress_pct or 0,
+        "progress_message": run.progress_message,
+        "checkpoint": run.checkpoint or {},
+        "execution_mode": run.execution_mode,
+    }
+
+
+@router.post("/runs/{run_id}/resume", response_model=MigrationRunRead)
+def resume_migration_run(
+    run_id: UUID,
+    db: Session = Depends(get_db_session),
+    registry: ConnectorRegistry = Depends(get_registry),
+) -> MigrationRun:
+    run = _load_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Migration run not found")
+    if run.status not in (RunStatus.FAILED.value, RunStatus.CANCELLED.value):
+        raise HTTPException(status_code=400, detail="Only failed or cancelled runs can be resumed")
+    project = db.get(Project, run.project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    run.status = RunStatus.QUEUED.value
+    run.error_message = None
+    run.completed_at = None
+    run.progress_message = "Queued for resume"
+    run.run_config = {**run.run_config, "resume_from_checkpoint": run.checkpoint or {}}
+    db.commit()
+    db.refresh(run)
+
+    settings = get_settings()
+    if settings.runner_mode != "worker":
+        service = RunService(db, registry)
+        run = service.execute_run(run, project)
+    return _load_run(db, run.id)
 
 
 @router.get("/runs/{run_id}/audit", response_model=list[AuditLogRead])

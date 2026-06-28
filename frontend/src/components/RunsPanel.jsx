@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { StatusBadge } from './Layout';
+
+const ACTIVE_STATUSES = new Set(['queued', 'running']);
 
 export default function RunsPanel({ project, entities }) {
   const [runs, setRuns] = useState([]);
@@ -14,6 +16,7 @@ export default function RunsPanel({ project, entities }) {
   const [runName, setRunName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const pollRef = useRef(null);
 
   const loadRuns = async () => {
     try {
@@ -27,6 +30,50 @@ export default function RunsPanel({ project, entities }) {
   useEffect(() => {
     loadRuns();
   }, [project.id]);
+
+  useEffect(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (!selectedRun || !ACTIVE_STATUSES.has(selectedRun.status)) return undefined;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const [detail, progress] = await Promise.all([
+          api.getRun(selectedRun.id),
+          api.getRunProgress(selectedRun.id),
+        ]);
+        setSelectedRun((prev) => ({ ...prev, ...detail, ...progress }));
+        if (!ACTIVE_STATUSES.has(detail.status)) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          loadRuns();
+        }
+      } catch {
+        /* ignore transient poll errors */
+      }
+    }, 2500);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [selectedRun?.id, selectedRun?.status]);
+
+  const resumeRun = async () => {
+    if (!selectedRun) return;
+    setBusy(true);
+    setError('');
+    try {
+      const run = await api.resumeRun(selectedRun.id);
+      setSelectedRun(run);
+      await loadRuns();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const startRun = async (e) => {
     e.preventDefault();
@@ -123,7 +170,10 @@ export default function RunsPanel({ project, entities }) {
                     onClick={() => selectRun(r)}
                   >
                     <span className="run-name">{r.name}</span>
-                    <StatusBadge status={r.status} />
+                    <span className="run-meta">
+                      {ACTIVE_STATUSES.has(r.status) && `${r.progress_pct ?? 0}% · `}
+                      <StatusBadge status={r.status} />
+                    </span>
                   </button>
                 </li>
               ))}
@@ -136,9 +186,20 @@ export default function RunsPanel({ project, entities }) {
             <h2>Run Details</h2>
             <div className="detail-grid">
               <div><span className="stat-label">Status</span><StatusBadge status={selectedRun.status} /></div>
+              <div><span className="stat-label">Progress</span>{selectedRun.progress_pct ?? 0}%</div>
               <div><span className="stat-label">Started</span>{selectedRun.started_at || '—'}</div>
               <div><span className="stat-label">Completed</span>{selectedRun.completed_at || '—'}</div>
             </div>
+            {selectedRun.progress_message && (
+              <p className="muted">{selectedRun.progress_message}</p>
+            )}
+            {(selectedRun.status === 'failed' || selectedRun.status === 'cancelled') && (
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={resumeRun} disabled={busy}>
+                  Resume from checkpoint
+                </button>
+              </div>
+            )}
             {selectedRun.error_message && (
               <div className="alert error">{selectedRun.error_message}</div>
             )}
