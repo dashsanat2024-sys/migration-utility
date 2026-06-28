@@ -221,6 +221,9 @@ export function buildProjectTabs(profile) {
   if (features.tariff_mapping) {
     tabs.push({ id: 'tariffs', label: 'Tariff Mapping' });
   }
+  if (profile?.industry === 'utility') {
+    tabs.push({ id: 'stw_transforms', label: 'STW Transforms' });
+  }
   tabs.push(
     { id: 'account_health', label: 'Account Health' },
     { id: 'selection', label: 'Candidate Selection' },

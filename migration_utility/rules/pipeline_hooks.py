@@ -8,6 +8,20 @@ from migration_utility.core.enums import PipelineStage
 from migration_utility.core.events import RunContext
 from migration_utility.rules.engine import TransformEngine, ValidationEngine
 from migration_utility.rules.types import LoadedRuleSet
+from migration_utility.transforms.stw import get_stw_rules
+
+
+def _transform_context(ctx: RunContext) -> dict[str, Any]:
+    stw = get_stw_rules(ctx.config)
+    tariff_table = ctx.config.get("stw_tariff_table") or ctx.metadata.get("tariff_table") or []
+    if tariff_table:
+        stw = dict(stw)
+        stw["rateband"] = {**stw["rateband"], "tariff_table": tariff_table}
+    return {
+        "stw_transform_rules": stw,
+        "tariff_table": tariff_table,
+        "tariff_mappings": ctx.config.get("tariff_mappings") or ctx.metadata.get("tariff_mappings") or {},
+    }
 
 
 def _get_records(ctx: RunContext, source: SourceConnector) -> list[dict[str, Any]]:
@@ -68,7 +82,7 @@ def run_transform(
 
     if rule_set and rule_set.field_mappings:
         engine = TransformEngine()
-        transformed = engine.apply(valid, rule_set.field_mappings)
+        transformed = engine.apply(valid, rule_set.field_mappings, context=_transform_context(ctx))
     else:
         transformed = source.transform(valid, ctx)
 
@@ -108,7 +122,9 @@ def run_load(
         valid, _ = source.validate(records, ctx)
         rule_set: LoadedRuleSet | None = ctx.metadata.get("rule_set")
         if rule_set and rule_set.field_mappings:
-            transformed = TransformEngine().apply(valid, rule_set.field_mappings)
+            transformed = TransformEngine().apply(
+                valid, rule_set.field_mappings, context=_transform_context(ctx)
+            )
         else:
             transformed = source.transform(valid, ctx)
 

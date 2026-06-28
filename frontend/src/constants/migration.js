@@ -23,6 +23,9 @@ export const TRANSFORM_TYPES = [
   { id: 'date_format', label: 'Date format', description: 'Parse and reformat dates' },
   { id: 'pad_left', label: 'Pad left', description: 'Prefix characters to reach fixed width (e.g. 9-digit account)' },
   { id: 'regex_replace', label: 'Regex replace', description: 'Find/replace text (e.g. remove AdVAT from rate band)' },
+  { id: 'stw_property_type', label: 'STW property type', description: 'Severn Trent property type rules (metered/unmeasured, MDD, flat-from-address)' },
+  { id: 'stw_area_code', label: 'STW area code', description: 'Zone mapping, assessed suffix rules, OWC propagation, tariff fallback' },
+  { id: 'stw_rateband_lookup', label: 'STW rate band lookup', description: 'Tariff table lookup by product, rate band, year, area code' },
 ];
 
 export const WORKFLOW_ROLES = [
@@ -69,6 +72,8 @@ export function emptyTransformConfig(transformType) {
       return { width: 9, char: '0' };
     case 'regex_replace':
       return { pattern: ' AdVAT', replacement: '' };
+    case 'stw_rateband_lookup':
+      return { output_key: 'kraken_rate_band', default: '' };
     default:
       return {};
   }

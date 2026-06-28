@@ -208,6 +208,37 @@ export default function TransformConfigEditor({ transformType, config, onChange,
     );
   }
 
+  if (transformType === 'stw_property_type' || transformType === 'stw_area_code') {
+    return (
+      <p className="muted config-hint">
+        Uses project STW transform rules (STW Transforms tab). No per-field config required unless overriding via JSON below.
+      </p>
+    );
+  }
+
+  if (transformType === 'stw_rateband_lookup') {
+    return (
+      <div className="config-block">
+        <label className="config-label">
+          Output field from tariff row
+          <input
+            value={cfg.output_key ?? 'kraken_rate_band'}
+            disabled={disabled}
+            onChange={(e) => onChange({ ...cfg, output_key: e.target.value })}
+          />
+        </label>
+        <label className="config-label">
+          Default when no match
+          <input
+            value={cfg.default ?? ''}
+            disabled={disabled}
+            onChange={(e) => onChange({ ...cfg, default: e.target.value })}
+          />
+        </label>
+      </div>
+    );
+  }
+
   return (
     <label className="config-label">
       Config (JSON)

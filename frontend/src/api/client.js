@@ -133,6 +133,28 @@ export const api = {
   getMigrationTestingPlan: (projectId) =>
     request(`/projects/${projectId}/migration-testing/plan`),
 
+  getStwTransformRules: (projectId) => request(`/projects/${projectId}/stw-transform-rules`),
+  updateStwTransformRule: (projectId, ruleKey, rules) =>
+    request(`/projects/${projectId}/stw-transform-rules/${ruleKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules }),
+    }),
+  updateStwTariffTable: (projectId, rows) =>
+    request(`/projects/${projectId}/stw-transform-rules/tariff-table`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    }),
+  resetStwTransformRules: (projectId) =>
+    request(`/projects/${projectId}/stw-transform-rules/reset`, { method: 'POST' }),
+  previewStwTransform: (projectId, ruleKey, record) =>
+    request(`/projects/${projectId}/stw-transform-rules/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule_key: ruleKey, record }),
+    }),
+
   listExceptions: (projectId, status) => {
     const q = status ? `?status=${encodeURIComponent(status)}` : '';
     return request(`/projects/${projectId}/exceptions${q}`);

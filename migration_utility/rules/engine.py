@@ -104,22 +104,29 @@ class TransformEngine:
         self,
         records: list[dict[str, Any]],
         mappings: list[FieldMappingDef],
+        *,
+        context: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         enabled = sorted([m for m in mappings if m.enabled], key=lambda m: m.sort_order)
         if not enabled:
             return [dict(r) for r in records]
 
-        return [self._transform_one(record, enabled) for record in records]
+        ctx = context or {}
+        return [self._transform_one(record, enabled, ctx) for record in records]
 
     def _transform_one(
         self,
         record: dict[str, Any],
         mappings: list[FieldMappingDef],
+        context: dict[str, Any],
     ) -> dict[str, Any]:
+        working = dict(record)
         out: dict[str, Any] = {}
         for mapping in mappings:
-            value = self._apply_mapping(record, out, mapping)
+            value = self._apply_mapping(working, out, mapping, context)
             out[mapping.target_field] = value
+            if value is not None:
+                working[mapping.target_field] = value
         return out
 
     def _apply_mapping(
@@ -127,6 +134,7 @@ class TransformEngine:
         source: dict[str, Any],
         target_so_far: dict[str, Any],
         mapping: FieldMappingDef,
+        context: dict[str, Any],
     ) -> Any:
         tt = mapping.transform_type
         cfg = mapping.config
@@ -189,7 +197,36 @@ class TransformEngine:
             if pattern:
                 return re.sub(pattern, replacement, str(val))
             return val
+        if tt == "stw_property_type":
+            from migration_utility.transforms.stw import transform_property_type
+
+            rules = self._stw_rules(context, "property_type", cfg)
+            return transform_property_type(source, rules)
+        if tt == "stw_area_code":
+            from migration_utility.transforms.stw import transform_area_code
+
+            rules = self._stw_rules(context, "area_code", cfg)
+            return transform_area_code(source, rules, context=context)
+        if tt == "stw_rateband_lookup":
+            from migration_utility.transforms.stw import transform_rateband
+
+            rules = self._stw_rules(context, "rateband", cfg)
+            row = transform_rateband(source, rules)
+            if not row:
+                return cfg.get("default")
+            output_key = cfg.get("output_key", "kraken_rate_band")
+            return row.get(output_key) or row.get("rate_band") or cfg.get("default")
         return source.get(src) if src else None
+
+    @staticmethod
+    def _stw_rules(context: dict[str, Any], rule_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
+        base = (context.get("stw_transform_rules") or {}).get(rule_key) or {}
+        override = cfg.get("rules") or {}
+        if not override:
+            return base
+        merged = dict(base)
+        merged.update(override)
+        return merged
 
 
 def _is_empty(value: Any) -> bool:

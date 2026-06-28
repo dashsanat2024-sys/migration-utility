@@ -26,6 +26,9 @@ class TransformType(StrEnum):
     DATE_FORMAT = "date_format"
     PAD_LEFT = "pad_left"
     REGEX_REPLACE = "regex_replace"
+    STW_PROPERTY_TYPE = "stw_property_type"
+    STW_AREA_CODE = "stw_area_code"
+    STW_RATEBAND_LOOKUP = "stw_rateband_lookup"
 
 
 @dataclass

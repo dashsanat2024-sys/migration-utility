@@ -8,6 +8,8 @@ export const PROJECT_TAB_IDS = [
   'mapping',
   'rules',
   'tariffs',
+  'stw_transforms',
+  'account_health',
   'selection',
   'runs',
   'reconciliation',

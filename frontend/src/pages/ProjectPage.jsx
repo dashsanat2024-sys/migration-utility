@@ -9,6 +9,7 @@ import RunsPanel from '../components/RunsPanel';
 import ErrorsPanel from '../components/ErrorsPanel';
 import ExceptionQueuePanel from '../components/ExceptionQueuePanel';
 import AccountHealthPanel from '../components/AccountHealthPanel';
+import StwTransformRulesPanel from '../components/StwTransformRulesPanel';
 import CandidatesPanel from '../components/CandidatesPanel';
 import MappingPanel from '../components/MappingPanel';
 import ReconciliationPanel from '../components/ReconciliationPanel';
@@ -151,6 +152,16 @@ export default function ProjectPage() {
         <>
           <PanelHeader title="Tariff Mapping" subtitle="Map source products and rate bands to destination codes." />
           <div className="card"><TariffWizardStep project={project} /></div>
+        </>
+      )}
+
+      {activeTab === 'stw_transforms' && (
+        <>
+          <PanelHeader
+            title="STW Transform Rules"
+            subtitle="Property type, area code, and rate band rules — editable per project."
+          />
+          <StwTransformRulesPanel project={project} />
         </>
       )}
 

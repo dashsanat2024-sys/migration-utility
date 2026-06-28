@@ -569,3 +569,30 @@ class ReconciliationExportRead(BaseModel):
     summary: ReconciliationCountsRead
     runs: list[dict[str, Any]]
     load_records: list[dict[str, Any]]
+
+
+class StwTransformRulesRead(BaseModel):
+    property_type: dict[str, Any]
+    area_code: dict[str, Any]
+    rateband: dict[str, Any]
+    overrides: dict[str, Any] = Field(default_factory=dict)
+    tariff_table: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class StwTransformRulePatch(BaseModel):
+    rules: dict[str, Any] = Field(default_factory=dict)
+
+
+class StwTariffTableUpdate(BaseModel):
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class StwTransformPreviewRequest(BaseModel):
+    rule_key: str = Field(..., pattern=r"^(property_type|area_code|rateband)$")
+    record: dict[str, Any] = Field(default_factory=dict)
+
+
+class StwTransformPreviewRead(BaseModel):
+    rule_key: str
+    result: Any
+    record: dict[str, Any]
