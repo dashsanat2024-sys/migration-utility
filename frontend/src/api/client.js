@@ -107,6 +107,32 @@ export const api = {
     request(`/projects/${projectId}/ingest/files/${fileId}/profile`),
   listProjectProfiles: (projectId) => request(`/projects/${projectId}/profiles`),
 
+  krakenErrorSummary: () => request('/kraken/error-codes/summary'),
+  searchKrakenErrors: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/kraken/error-codes${q ? `?${q}` : ''}`);
+  },
+
+  runAccountHealthAssessment: (projectId, entity = 'account', limit) =>
+    request(`/projects/${projectId}/account-health/assess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity, limit: limit ?? null }),
+    }),
+  latestAccountHealth: (projectId, entity = 'account') =>
+    request(`/projects/${projectId}/account-health/latest?entity=${encodeURIComponent(entity)}`),
+  listAccountHealthRecords: (projectId, assessmentId, status) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request(`/projects/${projectId}/account-health/${assessmentId}/records${q}`);
+  },
+  syncAccountHealthFallout: (projectId, assessmentId, entity = 'account') =>
+    request(
+      `/projects/${projectId}/account-health/${assessmentId}/sync-fallout?entity=${encodeURIComponent(entity)}`,
+      { method: 'POST' },
+    ),
+  getMigrationTestingPlan: (projectId) =>
+    request(`/projects/${projectId}/migration-testing/plan`),
+
   listExceptions: (projectId, status) => {
     const q = status ? `?status=${encodeURIComponent(status)}` : '';
     return request(`/projects/${projectId}/exceptions${q}`);

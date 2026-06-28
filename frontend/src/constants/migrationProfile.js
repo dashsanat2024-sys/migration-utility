@@ -222,6 +222,7 @@ export function buildProjectTabs(profile) {
     tabs.push({ id: 'tariffs', label: 'Tariff Mapping' });
   }
   tabs.push(
+    { id: 'account_health', label: 'Account Health' },
     { id: 'selection', label: 'Candidate Selection' },
     { id: 'runs', label: 'Migration Runs' },
     { id: 'reconciliation', label: 'Reconciliation' },

@@ -31,6 +31,11 @@ class ExceptionItemRead(BaseModel):
     override_payload: dict | None
     resolution_note: str | None
     history: list
+    kraken_error_code: str | None = None
+    root_cause_category: str | None = None
+    owner_role: str | None = None
+    remediation_hint: str | None = None
+    fallout_status: str = "open"
 
     model_config = {"from_attributes": True}
 

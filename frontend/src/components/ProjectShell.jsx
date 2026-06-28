@@ -12,6 +12,7 @@ const NAV_ICONS = {
   tariffs: '≋',
   selection: '◎',
   runs: '▶',
+  account_health: '♥',
   errors: '⚠',
   reconciliation: '⊞',
 };
@@ -23,7 +24,7 @@ const NAV_SECTIONS = [
   },
   {
     label: 'Execution',
-    tabs: ['runs', 'errors', 'reconciliation'],
+    tabs: ['account_health', 'runs', 'errors', 'reconciliation'],
   },
   {
     label: 'Configure',

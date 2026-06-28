@@ -60,3 +60,8 @@ class ExceptionItem(Base, TimestampMixin):
     override_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     history: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    kraken_error_code: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    root_cause_category: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    owner_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    remediation_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fallout_status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")

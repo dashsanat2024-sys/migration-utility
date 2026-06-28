@@ -1,6 +1,6 @@
 # Migration Utility — Capability Matrix (Sales / RFP One-Pager)
 
-**Version 0.9.0** · Honest status for customer conversations  
+**Version 0.10.0** · Honest status for customer conversations  
 Legend: **Yes** = shipped · **Partial** = available with constraints · **Roadmap** = planned · **No** = not offered
 
 | Capability | Status | Notes |
@@ -19,6 +19,10 @@ Legend: **Yes** = shipped · **Partial** = available with constraints · **Roadm
 | mTLS to destination APIs | **Yes** | Client cert + CA bundle env vars |
 | Data profiling on upload | **Yes** | Column stats + anomaly report |
 | Exception queue (HITL) | **Yes** | Assign, override, resolve, audit history |
+| Kraken error catalog (~920 codes) | **Yes** | Range-indexed; 57 with confirmed API messages |
+| Account health & cohort readiness | **Yes** | Static data + operational blockers before migration |
+| Fallout root-cause classification | **Yes** | Kraken code, owner role, remediation routing |
+| Migration testing plan (dress rehearsal) | **Yes** | Mapping, product-build, volume, pre-prod phases |
 | RBAC + JWT login | **Partial** | Opt-in `AUTH_ENABLED=true`; no SSO yet |
 | Workflow approval tied to login | **Partial** | When auth enabled; demo mode without |
 | Live destination API load | **Partial** | Kraken/SAP live paths; customer URL/creds |

@@ -1,3 +1,4 @@
+from migration_utility.datastore.models.account_health import AccountHealthAssessment, AccountHealthRecord
 from migration_utility.datastore.models.audit_log import AuditLog
 from migration_utility.datastore.models.enterprise import DataProfile, ExceptionItem, User
 from migration_utility.datastore.models.batch import Batch
@@ -14,6 +15,8 @@ from migration_utility.datastore.models.selection import SelectionCriterion, Sel
 from migration_utility.datastore.models.tariff import TariffMapping, TariffMappingSet
 
 __all__ = [
+    "AccountHealthAssessment",
+    "AccountHealthRecord",
     "AuditLog",
     "Batch",
     "Candidate",

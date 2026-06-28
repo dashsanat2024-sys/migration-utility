@@ -8,6 +8,7 @@ import IngestPanel from '../components/IngestPanel';
 import RunsPanel from '../components/RunsPanel';
 import ErrorsPanel from '../components/ErrorsPanel';
 import ExceptionQueuePanel from '../components/ExceptionQueuePanel';
+import AccountHealthPanel from '../components/AccountHealthPanel';
 import CandidatesPanel from '../components/CandidatesPanel';
 import MappingPanel from '../components/MappingPanel';
 import ReconciliationPanel from '../components/ReconciliationPanel';
@@ -171,6 +172,16 @@ export default function ProjectPage() {
         <>
           <PanelHeader title="Reconciliation" subtitle="Funnel, variance, and BI export." />
           <ReconciliationPanel project={project} entities={entities} />
+        </>
+      )}
+
+      {activeTab === 'account_health' && (
+        <>
+          <PanelHeader
+            title="Account Health"
+            subtitle="Early profiling, Kraken error prediction, and cohort readiness before migration."
+          />
+          <AccountHealthPanel project={project} entities={entities} />
         </>
       )}
 

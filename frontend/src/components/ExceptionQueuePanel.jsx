@@ -126,8 +126,11 @@ export default function ExceptionQueuePanel({ project }) {
                 <th>Source</th>
                 <th>Entity</th>
                 <th>Row</th>
-                <th>Reason</th>
-                <th>Actions</th>
+                  <th>Reason</th>
+                  <th>Kraken</th>
+                  <th>Root cause</th>
+                  <th>Owner</th>
+                  <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -138,6 +141,9 @@ export default function ExceptionQueuePanel({ project }) {
                   <td>{item.entity}</td>
                   <td>{item.row_number ?? '—'}</td>
                   <td className="error-reason">{item.error_reason}</td>
+                  <td><code>{item.kraken_error_code || '—'}</code></td>
+                  <td>{item.root_cause_category || '—'}</td>
+                  <td>{item.owner_role || '—'}</td>
                   <td className="action-cell">
                     <button type="button" className="btn small" onClick={() => setSelectedId(item.id)}>
                       Review

@@ -162,6 +162,18 @@ class RunService:
             if load_results:
                 loaded_count = len(load_results.get("loaded", []))
                 failed_count = len(load_results.get("failed", []))
+                if load_results.get("failed"):
+                    from migration_utility.fallout.service import FalloutService
+
+                    fallout_svc = FalloutService(self._db)
+                    for failed_rec in load_results.get("failed", [])[:200]:
+                        if isinstance(failed_rec, dict):
+                            fallout_svc.classify_load_failure(
+                                failed_rec,
+                                entity=entity,
+                                project_id=project.id,
+                                run_id=run.id,
+                            )
                 try:
                     with self._db.begin_nested():
                         LoadRecordService(self._db).persist_results(
