@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { buildProjectTabs } from '../constants/migrationProfile';
 import { getProjectProfile, profileSummary } from '../utils/projectProfile';
@@ -35,6 +35,13 @@ function navLabel(item) {
   return item.id === 'mapping' ? 'Schema & Mapping' : item.label;
 }
 
+function scrollWorkspaceToTop(mainEl) {
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  mainEl?.scrollTo(0, 0);
+}
+
 export default function ProjectShell({
   project,
   activeTab,
@@ -43,6 +50,7 @@ export default function ProjectShell({
   children,
 }) {
   const [navOpen, setNavOpen] = useState(false);
+  const mainRef = useRef(null);
   const profile = getProjectProfile(project);
   const tabs = buildProjectTabs(profile);
   const summary = profileSummary(project);
@@ -54,14 +62,25 @@ export default function ProjectShell({
     return navLabel(tab);
   }, [activeTab, tabById]);
 
+  const resetScroll = useCallback(() => {
+    scrollWorkspaceToTop(mainRef.current);
+    requestAnimationFrame(() => scrollWorkspaceToTop(mainRef.current));
+  }, []);
+
   const handleTabChange = useCallback(
     (tabId) => {
-      onTabChange(tabId);
       setNavOpen(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      onTabChange(tabId);
+      resetScroll();
+      window.setTimeout(() => resetScroll(), 0);
+      window.setTimeout(() => resetScroll(), 64);
     },
-    [onTabChange],
+    [onTabChange, resetScroll],
   );
+
+  useEffect(() => {
+    resetScroll();
+  }, [activeTab, resetScroll]);
 
   useEffect(() => {
     if (!navOpen) return undefined;
@@ -105,14 +124,6 @@ export default function ProjectShell({
 
   return (
     <div className="app-grid">
-      <button
-        type="button"
-        className={`sidebar-backdrop ${navOpen ? 'visible' : ''}`}
-        aria-label="Close menu"
-        onClick={() => setNavOpen(false)}
-        tabIndex={navOpen ? 0 : -1}
-      />
-
       <header className="mobile-topbar">
         <button
           type="button"
@@ -132,47 +143,59 @@ export default function ProjectShell({
         </Link>
       </header>
 
-      <aside className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Project navigation">
-        <div className="sidebar-brand">
-          <div className="sidebar-brand-row">
-            <Link to="/" className="sidebar-brand-link" onClick={() => setNavOpen(false)}>
-              <BrandLogo size={46} subtitle={project.name} />
-            </Link>
-            <button
-              type="button"
-              className="sidebar-close-btn"
-              aria-label="Close navigation menu"
-              onClick={() => setNavOpen(false)}
-            >
-              ×
-            </button>
+      <main className="project-main" ref={mainRef}>
+        {children}
+      </main>
+
+      <div className={`mobile-drawer-layer ${navOpen ? 'open' : ''}`} aria-hidden={!navOpen}>
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close menu"
+          onClick={() => setNavOpen(false)}
+          tabIndex={navOpen ? 0 : -1}
+        />
+
+        <aside className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Project navigation">
+          <div className="sidebar-brand">
+            <div className="sidebar-brand-row">
+              <Link to="/" className="sidebar-brand-link" onClick={() => setNavOpen(false)}>
+                <BrandLogo size={46} subtitle={project.name} />
+              </Link>
+              <button
+                type="button"
+                className="sidebar-close-btn"
+                aria-label="Close navigation menu"
+                onClick={() => setNavOpen(false)}
+              >
+                ×
+              </button>
+            </div>
           </div>
-        </div>
 
-        {navSections}
+          {navSections}
 
-        <div className="sidebar-footer">
-          {plugin ? (
-            <div className="plugin-pill">
-              <span className="led" />
-              <div>
-                <div className="plugin-pill-name">{plugin.id}</div>
-                <div className="plugin-pill-sub">Plugin connected</div>
+          <div className="sidebar-footer">
+            {plugin ? (
+              <div className="plugin-pill">
+                <span className="led" />
+                <div>
+                  <div className="plugin-pill-name">{plugin.id}</div>
+                  <div className="plugin-pill-sub">Plugin connected</div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="plugin-pill">
-              <span className="led dim" />
-              <div>
-                <div className="plugin-pill-name">{summary.industryLabel}</div>
-                <div className="plugin-pill-sub">{summary.approachLabel}</div>
+            ) : (
+              <div className="plugin-pill">
+                <span className="led dim" />
+                <div>
+                  <div className="plugin-pill-name">{summary.industryLabel}</div>
+                  <div className="plugin-pill-sub">{summary.approachLabel}</div>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      <main className="project-main">{children}</main>
+            )}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

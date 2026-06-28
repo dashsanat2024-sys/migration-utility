@@ -54,7 +54,7 @@ body {
 
 body.nav-open {
   overflow: hidden;
-  touch-action: none;
+  overscroll-behavior: none;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -578,34 +578,86 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 .app-grid {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 100vh;
   background: var(--bg);
 }
+
+.app-grid > .project-main {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+/* Desktop: drawer wrapper is layout-transparent; sidebar sits in column 1. */
+@media (min-width: 901px) {
+  .mobile-drawer-layer {
+    display: contents;
+  }
+
+  .mobile-drawer-layer .sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: auto;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
 /* Mobile project shell — hidden on desktop */
 .mobile-topbar,
+.mobile-drawer-layer,
 .sidebar-backdrop,
 .sidebar-close-btn {
   display: none;
 }
 
 @media (max-width: 900px) {
+  .app-shell.project-route {
+    min-height: 100dvh;
+  }
+
   .app-grid {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
   }
 
+  .app-grid > .project-main {
+    grid-column: auto;
+    grid-row: auto;
+    order: 2;
+  }
+
   .mobile-topbar {
     display: flex;
     align-items: center;
     gap: 12px;
+    order: 1;
     position: sticky;
     top: 0;
     z-index: 120;
     padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
     background: linear-gradient(180deg, #121230 0%, #1B1A3E 100%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #fff;
+    flex-shrink: 0;
+  }
+
+  .mobile-drawer-layer {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 190;
+    pointer-events: none;
+  }
+
+  .mobile-drawer-layer.open {
+    pointer-events: auto;
   }
 
   .mobile-menu-btn {
@@ -685,9 +737,9 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 
   .sidebar-backdrop {
     display: block;
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 190;
+    z-index: 1;
     border: none;
     padding: 0;
     margin: 0;
@@ -698,25 +750,25 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
     cursor: pointer;
   }
 
-  .sidebar-backdrop.visible {
+  .mobile-drawer-layer.open .sidebar-backdrop {
     opacity: 1;
     pointer-events: auto;
   }
 
-  .sidebar {
-    position: fixed;
+  .mobile-drawer-layer .sidebar {
+    position: absolute;
     top: 0;
     left: 0;
     bottom: 0;
     width: min(288px, 88vw);
-    z-index: 200;
+    z-index: 2;
     transform: translateX(-105%);
     transition: transform 0.24s ease;
     height: 100dvh;
     box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
   }
 
-  .sidebar.open {
+  .mobile-drawer-layer .sidebar.open {
     transform: translateX(0);
   }
 
@@ -752,10 +804,10 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
   }
 
   .project-main {
-    padding: 16px 14px 48px;
-    min-height: auto;
+    padding: 16px 14px calc(48px + env(safe-area-inset-bottom));
+    min-height: 0;
     width: 100%;
-    flex: 1;
+    flex: 1 1 auto;
   }
 
   .screen-topbar {
