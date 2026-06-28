@@ -10,6 +10,12 @@ from migration_utility.connectors.registry import ConnectorRegistry
 router = APIRouter(tags=["health"])
 
 
+@router.get("/health/live")
+def health_live() -> dict[str, str]:
+    """Lightweight liveness probe — no database (warms serverless without Neon latency)."""
+    return {"status": "ok", "version": __version__}
+
+
 @router.get("/health", response_model=HealthRead)
 def health_check(
     db: Session = Depends(get_db_session),

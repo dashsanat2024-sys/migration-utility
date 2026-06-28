@@ -15,11 +15,10 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     setError('');
+    setLoading(true);
     try {
-      const [h, p] = await Promise.all([api.health(), api.listProjects()]);
-      setHealth(h);
+      const p = await api.listProjects();
       setProjects(p);
     } catch (err) {
       setError(err.message);
@@ -31,6 +30,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+    api.health().then(setHealth).catch(() => {});
   };
 
   useEffect(() => {

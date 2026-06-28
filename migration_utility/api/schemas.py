@@ -305,6 +305,15 @@ class DestinationSchemaRead(BaseModel):
     fields: list[SchemaFieldRead] = Field(default_factory=list)
 
 
+class ProjectWorkspaceRead(BaseModel):
+    project: ProjectRead
+    plugin: DestinationPluginRead
+    destination_schema: DestinationSchemaRead
+    catalog: FieldCatalogRead | None = None
+    rule_sets: list[RuleSetRead] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=lambda: ["account"])
+
+
 class SwapDestinationPluginRequest(BaseModel):
     plugin_id: str = Field(..., min_length=1)
     confirm_orphan: bool = False

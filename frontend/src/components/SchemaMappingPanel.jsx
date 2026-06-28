@@ -58,6 +58,7 @@ function isMigrationProvenanceRow(row, schemaFieldByName) {
 export default function SchemaMappingPanel({
   project,
   entity,
+  workspace = null,
   ruleSets: ruleSetsProp = [],
   selectedRuleSetId,
   onApplied,
@@ -67,11 +68,11 @@ export default function SchemaMappingPanel({
   embedMode = false,
   hideTopActions = false,
 }) {
-  const [plugin, setPlugin] = useState(null);
-  const [schema, setSchema] = useState(null);
-  const [catalog, setCatalog] = useState(null);
+  const [plugin, setPlugin] = useState(workspace?.plugin ?? null);
+  const [schema, setSchema] = useState(workspace?.destination_schema ?? null);
+  const [catalog, setCatalog] = useState(workspace?.catalog ?? null);
   const [rows, setRows] = useState([]);
-  const [localRuleSets, setLocalRuleSets] = useState([]);
+  const [localRuleSets, setLocalRuleSets] = useState(workspace?.rule_sets ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
@@ -139,11 +140,18 @@ export default function SchemaMappingPanel({
   }, [project.id, entity]);
 
   useEffect(() => {
+    if (workspace) {
+      setPlugin(workspace.plugin ?? null);
+      setSchema(workspace.destination_schema ?? null);
+      setCatalog(workspace.catalog ?? null);
+      setLocalRuleSets(workspace.rule_sets ?? []);
+      return;
+    }
     setError('');
     Promise.all([loadPluginSchema(), loadCatalog(), loadRuleSets()]).catch((err) =>
       setError(err.message),
     );
-  }, [loadPluginSchema, loadCatalog, loadRuleSets]);
+  }, [workspace, loadPluginSchema, loadCatalog, loadRuleSets]);
 
   useEffect(() => {
     setApplyRuleSetId((current) => pickDefaultRuleSetId(ruleSets, selectedRuleSetId || current));

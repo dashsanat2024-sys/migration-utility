@@ -38,6 +38,7 @@ async function request(path, options = {}) {
 
 export const api = {
   health: () => request('/health'),
+  healthLive: () => request('/health/live'),
 
   listProjects: () => request('/projects'),
   createProject: (body) =>
@@ -47,6 +48,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getProject: (id) => request(`/projects/${id}`),
+  getProjectWorkspace: (projectRef, entity = 'account') =>
+    request(`/projects/${projectRef}/workspace?entity=${encodeURIComponent(entity)}`),
   updateProject: (id, body) =>
     request(`/projects/${id}`, {
       method: 'PATCH',

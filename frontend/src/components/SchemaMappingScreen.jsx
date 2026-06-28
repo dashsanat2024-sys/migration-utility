@@ -1,42 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api/client';
 import { getProjectProfile, profileSummary } from '../utils/projectProfile';
 import MigrationStepper from './MigrationStepper';
 import SchemaMappingPanel from './SchemaMappingPanel';
 
-export default function SchemaMappingScreen({ project, entities, onNavigateTab }) {
-  const [plugin, setPlugin] = useState(null);
-  const [schema, setSchema] = useState(null);
-  const [catalog, setCatalog] = useState(null);
-  const [ruleSets, setRuleSets] = useState([]);
+export default function SchemaMappingScreen({
+  project,
+  workspace,
+  onNavigateTab,
+  onWorkspaceRefresh,
+}) {
   const [mappedCount, setMappedCount] = useState(0);
   const [unmappedRequired, setUnmappedRequired] = useState(0);
-  const entity = entities[0] || 'account';
+  const entity = workspace?.entities?.[0] || 'account';
 
   const profile = getProjectProfile(project);
   const summary = profileSummary(project);
   const showTariff = profile.features?.tariff_mapping !== false;
-
-  const loadMeta = useCallback(async () => {
-    const [p, s, c, rs] = await Promise.all([
-      api.getDestinationPlugin(project.id),
-      api.getDestinationSchema(project.id, entity),
-      api.getFieldCatalog(project.id, entity),
-      api.listRuleSets(project.id, entity),
-    ]);
-    setPlugin(p);
-    setSchema(s);
-    setCatalog(c);
-    setRuleSets(rs);
-  }, [project.id, entity]);
-
-  useEffect(() => {
-    loadMeta().catch(() => {});
-  }, [loadMeta]);
+  const plugin = workspace?.plugin ?? null;
+  const schema = workspace?.destination_schema ?? null;
+  const catalog = workspace?.catalog ?? null;
 
   const completedThrough = catalog?.source_fields?.length ? 3 : plugin ? 2 : 1;
-  const requiredTotal = schema?.fields?.filter((f) => f.required).length || 0;
+  const requiredTotal = useMemo(
+    () => schema?.fields?.filter((f) => f.required).length || 0,
+    [schema],
+  );
 
   const handleStatsChange = useCallback(({ mappedCount: m, unmappedCount, schema: s }) => {
     setMappedCount(m);
@@ -47,6 +36,14 @@ export default function SchemaMappingScreen({ project, entities, onNavigateTab }
       setUnmappedRequired(unmappedCount);
     }
   }, []);
+
+  const handlePluginChange = useCallback(() => {
+    onWorkspaceRefresh?.();
+  }, [onWorkspaceRefresh]);
+
+  const handleRuleSetsChange = useCallback(() => {
+    onWorkspaceRefresh?.();
+  }, [onWorkspaceRefresh]);
 
   return (
     <div className="schema-mapping-screen">
@@ -102,12 +99,9 @@ export default function SchemaMappingScreen({ project, entities, onNavigateTab }
       <SchemaMappingPanel
         project={project}
         entity={entity}
-        ruleSets={ruleSets}
-        onRuleSetsChange={loadMeta}
-        onPluginChange={(p) => {
-          setPlugin(p);
-          loadMeta();
-        }}
+        workspace={workspace}
+        onRuleSetsChange={handleRuleSetsChange}
+        onPluginChange={handlePluginChange}
         onStatsChange={handleStatsChange}
         embedMode
       />

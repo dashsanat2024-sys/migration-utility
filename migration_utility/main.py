@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from migration_utility import __version__
-from migration_utility.api.routes import candidates, destination, fields, health, ingest, mapping, migration_runs, projects, reconciliation, rules, schema, selection, tariffs
+from migration_utility.api.routes import candidates, destination, fields, health, ingest, mapping, migration_runs, projects, reconciliation, rules, schema, selection, tariffs, workspace
 from migration_utility.config import get_settings
 from migration_utility.connectors.registry import build_default_registry
 from migration_utility.ingest.preprocessors import build_default_preprocessors
@@ -70,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(fields.router, prefix="/api")
     app.include_router(tariffs.router, prefix="/api")
     app.include_router(reconciliation.router, prefix="/api")
+    app.include_router(workspace.router, prefix="/api")
 
     return app
 

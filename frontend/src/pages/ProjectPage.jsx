@@ -27,17 +27,37 @@ function PanelHeader({ title, subtitle }) {
   );
 }
 
+function LoadingShell({ message = 'Loading project…' }) {
+  return (
+    <div className="app-grid">
+      <header className="mobile-topbar mobile-topbar-skeleton">
+        <div className="skeleton-block skeleton-menu" />
+        <div className="skeleton-block skeleton-title" />
+        <div className="skeleton-block skeleton-home" />
+      </header>
+      <main className="project-main">
+        <div className="loading-state">
+          <div className="loading-spinner" aria-hidden="true" />
+          <p className="muted">{message}</p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function ProjectPage() {
   const { projectRef, legacyTab } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState(null);
-  const [entities, setEntities] = useState([]);
-  const [plugin, setPlugin] = useState(null);
+  const [workspace, setWorkspace] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(() =>
     legacyTab && isValidProjectTab(legacyTab) ? legacyTab : DEFAULT_PROJECT_TAB,
   );
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+
+  const project = workspace?.project ?? null;
+  const entities = workspace?.entities ?? ['account'];
+  const plugin = workspace?.plugin ?? null;
 
   const profile = useMemo(() => (project ? getProjectProfile(project) : null), [project]);
   const tabs = useMemo(() => (profile ? buildProjectTabs(profile) : []), [profile]);
@@ -51,18 +71,8 @@ export default function ProjectPage() {
     setLoading(true);
     setError('');
     try {
-      const [p, e] = await Promise.all([
-        api.getProject(projectRef),
-        api.listSchemaEntities(),
-      ]);
-      setProject(p);
-      setEntities(e);
-      try {
-        const pl = await api.getDestinationPlugin(p.id);
-        setPlugin(pl);
-      } catch {
-        setPlugin(null);
-      }
+      const ws = await api.getProjectWorkspace(projectRef);
+      setWorkspace(ws);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -74,7 +84,6 @@ export default function ProjectPage() {
     load();
   }, [load]);
 
-  // Canonical URL: slug only (no UUID, no /mapping tab segment).
   useEffect(() => {
     if (!project?.slug) return;
     const canonical = projectPath(project.slug);
@@ -91,11 +100,7 @@ export default function ProjectPage() {
   }, [tabIds, tab]);
 
   if (loading) {
-    return (
-      <div className="app-grid">
-        <main className="project-main"><p className="muted">Loading project…</p></main>
-      </div>
-    );
+    return <LoadingShell />;
   }
   if (error) {
     return (
@@ -113,8 +118,9 @@ export default function ProjectPage() {
       {activeTab === 'mapping' && (
         <SchemaMappingScreen
           project={project}
-          entities={entities}
+          workspace={workspace}
           onNavigateTab={goToTab}
+          onWorkspaceRefresh={load}
         />
       )}
 

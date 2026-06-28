@@ -51,6 +51,39 @@ def test_health(client):
     assert "sap" in targets
 
 
+def test_health_live(client):
+    resp = client.get("/api/health/live")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["version"]
+
+
+def test_project_workspace(client):
+    project_resp = client.post(
+        "/api/projects",
+        json={
+            "name": "Workspace Test",
+            "slug": "workspace-test",
+            "target_system": "kraken",
+            "target_adapter_key": "kraken",
+            "source_connector_key": "mock",
+        },
+    )
+    assert project_resp.status_code == 201
+    slug = project_resp.json()["slug"]
+
+    resp = client.get(f"/api/projects/{slug}/workspace")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["project"]["slug"] == slug
+    assert body["plugin"]["id"] == "kraken-billing-v3"
+    assert body["destination_schema"]["entity"] == "account"
+    assert isinstance(body["entities"], list)
+    assert "account" in body["entities"]
+    assert isinstance(body["rule_sets"], list)
+
+
 def test_kraken_run_persists_load_records(client):
     project_resp = client.post(
         "/api/projects",
