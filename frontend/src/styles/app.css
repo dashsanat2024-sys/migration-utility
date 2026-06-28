@@ -591,6 +591,12 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 /* Desktop: drawer wrapper is layout-transparent; sidebar sits in column 1. */
 @media (min-width: 901px) {
+  .mobile-topbar,
+  .sidebar-backdrop,
+  .sidebar-close-btn {
+    display: none;
+  }
+
   .mobile-drawer-layer {
     display: contents;
   }
@@ -605,14 +611,6 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
     transform: none;
     box-shadow: none;
   }
-}
-
-/* Mobile project shell — hidden on desktop */
-.mobile-topbar,
-.mobile-drawer-layer,
-.sidebar-backdrop,
-.sidebar-close-btn {
-  display: none;
 }
 
 @media (max-width: 900px) {
