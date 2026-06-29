@@ -79,6 +79,8 @@ Poll interval: `WORKER_POLL_SECONDS` (default 5).
 | `LOAD_RETRY_MAX` | `5` | Retries on HTTP 429 / `KT-CT-1199` with exponential backoff |
 | `LOAD_IDEMPOTENT` | `true` | Skip records already loaded for project+entity (URN dedup) |
 | `WORKER_ID` | *(auto)* | Worker identity in logs and `claimed_by` (`hostname-pid` if empty) |
+| `LOAD_AUDIT_MODE` | `full` | `full` = all load rows; `summary` = sample payloads + counts only |
+| `LOAD_AUDIT_SAMPLE_SIZE` | `10` | Max loaded/failed samples persisted per batch in summary mode |
 | `WORKER_POLL_SECONDS` | `5` | Worker idle poll |
 | `AUTH_ENABLED` | `false` | Enable JWT login + RBAC |
 | `AUTH_SECRET` | change-me | JWT signing secret |
@@ -105,6 +107,21 @@ docker compose up --scale worker=4
 ```
 
 Do **not** set a fixed `container_name` on the worker service when scaling Compose replicas.
+
+## Connection pooling (PgBouncer)
+
+For 4+ worker replicas, point `DATABASE_URL` at **PgBouncer** (transaction or session pool) instead of PostgreSQL directly:
+
+```bash
+# Example — PgBouncer in front of Postgres
+DATABASE_URL=postgresql://migration:migration@pgbouncer:6432/migration_utility
+```
+
+Use **session** pooling if you rely on `FOR UPDATE SKIP LOCKED` across long-running worker transactions; **transaction** pooling is fine when each claim+commit is a short unit of work (current worker design).
+
+---
+
+## Proxy and mTLS
 
 Outbound calls (live Kraken product/account import) use `migration_utility.network.http_client.build_http_client()`:
 

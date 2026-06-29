@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     worker_id: str = ""  # auto hostname-pid when empty
     load_idempotent: bool = True  # skip records already loaded for project+entity
 
+    # Load audit persistence (Phase 4)
+    load_audit_mode: str = "full"  # full | summary
+    load_audit_sample_size: int = 10
+
     # AI-assisted layer (suggests only — never writes to Kraken)
     ai_enabled: bool = True
     ai_mock_mode: bool = True

@@ -203,8 +203,21 @@ class RunService:
                             entity=entity,
                             loaded=load_results.get("loaded", []),
                             failed=load_results.get("failed", []),
+                            audit_mode=merged_config.get(
+                                "load_audit_mode", get_settings().load_audit_mode
+                            ),
+                            sample_size=merged_config.get(
+                                "load_audit_sample_size", get_settings().load_audit_sample_size
+                            ),
                         )
-                    load_summary = {"loaded": loaded_count, "failed": failed_count, "persisted": True}
+                    load_summary = {
+                        "loaded": loaded_count,
+                        "failed": failed_count,
+                        "persisted": True,
+                        "audit_mode": merged_config.get(
+                            "load_audit_mode", get_settings().load_audit_mode
+                        ),
+                    }
                 except Exception as exc:
                     logger.warning("Load record persistence skipped: %s", exc)
                     load_summary = {

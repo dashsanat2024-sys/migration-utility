@@ -82,24 +82,27 @@ Load records + exception queue + reconciliation
 
 `claim_next_queued_run()` uses `SELECT … FOR UPDATE SKIP LOCKED` on PostgreSQL so multiple worker replicas claim distinct runs without double-execution. Each run records `claimed_by` / `claimed_at`.
 
-**Remaining risk:** Audit DB write amplification and selection cap (Phases 4–5).
+**Remaining risk:** Selection volume cap and wave orchestration (Phase 5).
 
-### 4.4 Selection volume cap
+### 4.4 Database & audit optimisation (Phase 4 — implemented)
+
+Staging tables get composite indexes for batch cursor reads. Load audit uses bulk insert; `LOAD_AUDIT_MODE=summary` persists sample payloads + aggregate counts instead of one row per record.
+
+### 4.5 Selection volume cap
 
 Default seed profile: `max_candidates=1000`.  
 A single run with selection will not exceed 1,000 unless profile/config is changed.
 
-### 4.5 Load record persistence overhead
+### 4.6 Load record persistence (mitigated in Phase 4)
 
-100k accounts/day → 100k `load_records` rows/day with full request/response JSON.  
-Bulk `INSERT` or summary-only mode not implemented.
+Use `LOAD_AUDIT_MODE=summary` for production bulk (default `full` for UAT). Full mode still writes one row per record — acceptable below ~20k/day.
 
-### 4.6 Serverless unsuitable
+### 4.7 Serverless unsuitable
 
 Vercel: `maxDuration: 30` seconds, no background worker, `/tmp` storage.  
 Not viable for bulk migration regardless of tuning.
 
-### 4.7 Destination rate limits
+### 4.8 Destination rate limits
 
 Kraken documents `KT-CT-1199` (rate limit) in enrollment range.  
 No adaptive throttling in the load adapter today.
@@ -179,16 +182,18 @@ Per-run overrides: pass `load_batch_size`, `load_concurrency`, etc. in `run_conf
 
 Set unique `WORKER_ID` per replica in K8s (`metadata.name`) for observability.
 
-### Phase 4 — Database & audit optimisation (P1, ~1 week)
+### Phase 4 — Database & audit optimisation (P1) — **Done (v0.11.0+)**
 
-| Task | Detail |
+| Task | Status |
 |------|--------|
-| Staging indexes | `(_project_id, _status, _batch_id)`, `(_row_number)` |
-| Bulk load record insert | `executemany` or `COPY` for audit rows |
-| Summary-only mode | `LOAD_AUDIT_MODE=summary` — counts only, sample payloads |
-| PgBouncer | Connection pooling for worker fleet |
+| Staging indexes | `ensure_staging_indexes()` on `(_project_id, _status, _batch_id)` + row cursor |
+| Bulk load record insert | `bulk_insert_mappings` in `LoadRecordService` |
+| Summary-only mode | `LOAD_AUDIT_MODE=summary` + `LOAD_AUDIT_SAMPLE_SIZE` |
+| PgBouncer | Documented in `DEPLOYMENT_RUNNER.md` |
 
 **Expected gain:** Lower DB write amplification at 100k+/day.
+
+Set `LOAD_AUDIT_MODE=summary` in production bulk cutover; use `full` for UAT debugging.
 
 ### Phase 5 — Wave orchestration (P2, ~1 week)
 
@@ -266,7 +271,8 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 3. ~~**Implement Phase 1**~~ — chunked pipeline ✅  
 4. ~~**Implement Phase 2**~~ — destination batching + rate-limit handling ✅  
 5. ~~**Scale workers**~~ — Phase 3 parallel claiming ✅  
-6. **DB optimisation** — Phase 4 after load test shows audit/DB headroom
+6. ~~**DB optimisation**~~ — Phase 4 staging indexes + summary audit ✅  
+7. **Wave scheduler** — Phase 5 for operational daily quota UX
 
 ---
 
@@ -277,7 +283,7 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 | Phase 1 — Chunked pipeline | Done | Memory-safe 10k–50k per run, resume |
 | Phase 2 — Load batching | Done | Destination throughput, rate limits |
 | Phase 3 — Parallel workers | Done | Multi-run concurrency, idempotent load |
-| Phase 4 — DB optimisation | ~1 week | 100k+ audit rows/day |
+| Phase 4 — DB optimisation | Done | Staging indexes, bulk audit, summary mode |
 | Phase 5 — Wave scheduler | ~1 week | Operational “daily quota” UX |
 
 **Total:** ~4–5 weeks engineering + 1 week UAT load test before customer commitment.

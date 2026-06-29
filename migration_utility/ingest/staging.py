@@ -52,7 +52,9 @@ def ensure_staging_table(engine: Engine, table_name: str, entity: SchemaEntity) 
     if table_name in _metadata.tables:
         return _metadata.tables[table_name]
     if table_name in inspector.get_table_names():
-        return Table(table_name, _metadata, autoload_with=engine)
+        table = Table(table_name, _metadata, autoload_with=engine)
+        ensure_staging_indexes(engine, table_name)
+        return table
 
     columns: list[Column] = [
         _uuid_column("_row_id", primary_key=True),
@@ -70,7 +72,42 @@ def ensure_staging_table(engine: Engine, table_name: str, entity: SchemaEntity) 
 
     table = Table(table_name, _metadata, *columns)
     table.create(bind=engine, checkfirst=True)
+    ensure_staging_indexes(engine, table_name)
     return table
+
+
+def ensure_staging_indexes(engine: Engine, table_name: str) -> None:
+    """Create indexes for chunked batch reads (idempotent)."""
+    inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return
+
+    existing_names = {idx["name"] for idx in inspector.get_indexes(table_name)}
+
+    specs = [
+        (
+            _staging_index_name(table_name, "proj_status_batch"),
+            "(_project_id, _status, _batch_id)",
+        ),
+        (
+            _staging_index_name(table_name, "proj_status_batch_row"),
+            "(_project_id, _status, _batch_id, _row_number)",
+        ),
+    ]
+
+    with engine.begin() as conn:
+        for index_name, columns in specs:
+            if index_name in existing_names:
+                continue
+            conn.execute(
+                text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} {columns}")
+            )
+
+
+def _staging_index_name(table_name: str, suffix: str) -> str:
+    raw = f"ix_{table_name}_{suffix}".lower().replace("-", "_")
+    safe = re.sub(r"[^a-z0-9_]", "_", raw)
+    return safe[:63]
 
 
 def insert_staged_rows(
