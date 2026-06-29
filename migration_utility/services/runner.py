@@ -126,6 +126,18 @@ class RunService:
                     self._db.commit()
                     return run
 
+            ctx_metadata = {
+                    "batch_number": batch.batch_number,
+                    "project_slug": project.slug,
+                    "rule_set": loaded_rule_set,
+                    "target_system": project.target_system,
+                    "environment": project.environment,
+                }
+            if merged_config.get("load_idempotent", get_settings().load_idempotent):
+                ctx_metadata["loaded_external_ids"] = LoadRecordService(
+                    self._db
+                ).loaded_external_ids(project.id, entity=entity)
+
             ctx = RunContext(
                 project_id=project.id,
                 run_id=run.id,
@@ -133,13 +145,7 @@ class RunService:
                 source_connector_key=project.source_connector_key,
                 target_adapter_key=project.target_adapter_key,
                 config=batch_config,
-                metadata={
-                    "batch_number": batch.batch_number,
-                    "project_slug": project.slug,
-                    "rule_set": loaded_rule_set,
-                    "target_system": project.target_system,
-                    "environment": project.environment,
-                },
+                metadata=ctx_metadata,
             )
 
             batch_outcome = self._execute_batch_pipeline(

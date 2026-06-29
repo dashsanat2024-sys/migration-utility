@@ -37,6 +37,8 @@ class MigrationRun(Base, TimestampMixin):
     progress_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
     checkpoint: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     execution_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="sync")
+    claimed_by: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="runs")
     batches: Mapped[list["Batch"]] = relationship(

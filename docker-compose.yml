@@ -50,7 +50,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: migration_utility_worker
+    # Scale: docker compose up --scale worker=4
     command: python -m migration_utility.worker.runner_worker
     environment:
       DATABASE_URL: postgresql://migration:migration@postgres:5432/migration_utility
@@ -58,6 +58,9 @@ services:
       LOG_LEVEL: INFO
       RUNNER_MODE: worker
       ASYNC_RUNS_ENABLED: "true"
+      RUN_CHUNK_SIZE: "500"
+      LOAD_BATCH_SIZE: "200"
+      LOAD_CONCURRENCY: "4"
     volumes:
       - landing_data:/app/data/landing
     depends_on:

@@ -27,6 +27,14 @@ class LoadRecordService:
     def __init__(self, db: Session) -> None:
         self._db = db
 
+    def loaded_external_ids(self, project_id: UUID, *, entity: str) -> set[str]:
+        stmt = select(LoadRecord.external_id).where(
+            LoadRecord.project_id == project_id,
+            LoadRecord.entity == entity,
+            LoadRecord.status == "loaded",
+        )
+        return set(self._db.scalars(stmt))
+
     def persist_results(
         self,
         project: Project,
@@ -48,6 +56,7 @@ class LoadRecordService:
                     target_adapter_key=target_adapter_key,
                     entity=entity,
                     external_id=_external_id(record),
+                    idempotency_key=record.get("_idempotency_key"),
                     status="loaded",
                     request_payload=_strip_internal(record),
                     response_payload=record,
@@ -65,6 +74,7 @@ class LoadRecordService:
                     target_adapter_key=target_adapter_key,
                     entity=entity,
                     external_id=_external_id(record),
+                    idempotency_key=record.get("_idempotency_key"),
                     status="failed",
                     request_payload=_strip_internal(record),
                     error_message=str(error) if error else "Load failed",

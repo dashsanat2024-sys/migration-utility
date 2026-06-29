@@ -77,6 +77,8 @@ Poll interval: `WORKER_POLL_SECONDS` (default 5).
 | `LOAD_CONCURRENCY` | `4` | Parallel destination load batches |
 | `LOAD_MAX_RPS` | `0` | Max destination requests/sec (`0` = unlimited) |
 | `LOAD_RETRY_MAX` | `5` | Retries on HTTP 429 / `KT-CT-1199` with exponential backoff |
+| `LOAD_IDEMPOTENT` | `true` | Skip records already loaded for project+entity (URN dedup) |
+| `WORKER_ID` | *(auto)* | Worker identity in logs and `claimed_by` (`hostname-pid` if empty) |
 | `WORKER_POLL_SECONDS` | `5` | Worker idle poll |
 | `AUTH_ENABLED` | `false` | Enable JWT login + RBAC |
 | `AUTH_SECRET` | change-me | JWT signing secret |
@@ -91,7 +93,18 @@ Poll interval: `WORKER_POLL_SECONDS` (default 5).
 
 ---
 
-## Proxy and mTLS
+## Scaling workers
+
+Multiple worker processes can run in parallel; each claims a distinct queued run via PostgreSQL `SKIP LOCKED`.
+
+```bash
+# Docker Compose — 4 parallel workers
+docker compose up --scale worker=4
+
+# Kubernetes — set replicas on the worker Deployment; set WORKER_ID from pod name
+```
+
+Do **not** set a fixed `container_name` on the worker service when scaling Compose replicas.
 
 Outbound calls (live Kraken product/account import) use `migration_utility.network.http_client.build_http_client()`:
 

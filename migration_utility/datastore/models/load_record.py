@@ -26,6 +26,7 @@ class LoadRecord(Base, TimestampMixin):
     target_adapter_key: Mapped[str] = mapped_column(String(128), nullable=False)
     entity: Mapped[str] = mapped_column(String(128), nullable=False, default="account")
     external_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     request_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from typing import Any
 
@@ -12,6 +11,10 @@ from migration_utility.connectors.load_executor import (
     is_rate_limited_http,
     parse_retry_after_seconds,
     run_batched_load,
+)
+from migration_utility.connectors.idempotency import (
+    build_batch_idempotency_key,
+    partition_idempotent,
 )
 from migration_utility.connectors.target_validation import validate_against_target
 from migration_utility.core.events import RunContext
@@ -33,6 +36,7 @@ class KrakenClient:
         project_id: str,
         environment: str = "dev",
         load_config: LoadBatchConfig | None = None,
+        entity: str = "account",
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         config = load_config or LoadBatchConfig.from_settings()
 
@@ -43,6 +47,7 @@ class KrakenClient:
                 batch,
                 project_id=project_id,
                 environment=environment,
+                entity=entity,
             )
 
         return run_batched_load(records, _handler, config=config)
@@ -69,10 +74,14 @@ class KrakenClient:
         *,
         project_id: str,
         environment: str,
+        entity: str = "account",
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         url = f"{self._base_url.rstrip('/')}/accounts/import"
         payload = {"projectId": project_id, "environment": environment, "records": records}
-        response = post_json(url, payload)
+        headers = {
+            "Idempotency-Key": build_batch_idempotency_key(project_id, entity, records),
+        }
+        response = post_json(url, payload, headers=headers)
         if is_rate_limited_http(response.status_code, response.text):
             raise RateLimitError(
                 response.text,
@@ -171,6 +180,23 @@ class KrakenTargetAdapter(TargetAdapter):
         if not valid:
             return [], invalid
 
+        entity = ctx.config.get("entity", "account")
+        settings = get_settings()
+        idempotent = ctx.config.get("load_idempotent", settings.load_idempotent)
+        skipped: list[dict[str, Any]] = []
+        if idempotent:
+            already_loaded = ctx.metadata.get("loaded_external_ids") or set()
+            valid, skipped = partition_idempotent(
+                valid,
+                already_loaded,
+                entity=entity,
+                project_id=ctx.project_id,
+            )
+            ctx.metadata["load_skipped_idempotent"] = len(skipped)
+
+        if not valid and not skipped:
+            return [], invalid
+
         environment = ctx.config.get("environment", ctx.metadata.get("environment", "dev"))
         project_id = str(ctx.project_id)
         load_config = LoadBatchConfig.from_settings(overrides=ctx.config)
@@ -179,8 +205,9 @@ class KrakenTargetAdapter(TargetAdapter):
             project_id=project_id,
             environment=environment,
             load_config=load_config,
+            entity=entity,
         )
-        return loaded, invalid + failed
+        return loaded + skipped, invalid + failed
 
 
 class KrakenProductImportAdapter:

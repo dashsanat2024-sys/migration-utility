@@ -79,6 +79,8 @@ class MigrationRunRead(BaseModel):
     progress_message: str | None = None
     checkpoint: dict[str, Any] = Field(default_factory=dict)
     execution_mode: str = "sync"
+    claimed_by: str | None = None
+    claimed_at: datetime | None = None
     batches: list[BatchRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
