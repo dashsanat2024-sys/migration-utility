@@ -54,7 +54,11 @@ class FileExportTargetAdapter(TargetAdapter):
         settings = get_settings()
         export_dir = Path(settings.export_path) / str(ctx.project_id)
         export_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"run_{ctx.run_id}_batch_{ctx.batch_id}.json"
+        chunk_index = ctx.config.get("chunk_index")
+        if chunk_index is not None:
+            filename = f"run_{ctx.run_id}_batch_{ctx.batch_id}_chunk_{chunk_index}.json"
+        else:
+            filename = f"run_{ctx.run_id}_batch_{ctx.batch_id}.json"
         path = export_dir / filename
         path.write_text(json.dumps(records, indent=2, default=str), encoding="utf-8")
 

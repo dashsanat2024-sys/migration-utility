@@ -27,6 +27,9 @@ class StagingSourceConnector(SourceConnector):
 
         table_name = staging_table_name(project_slug, entity)
         batch_id = _optional_uuid(ctx.config.get("filter_batch_id")) or ctx.batch_id
+        chunk_size = ctx.config.get("chunk_size")
+        limit = int(chunk_size) if chunk_size else None
+        after_row_number = int(ctx.config.get("after_row_number") or 0)
         rows = fetch_staged_rows(
             get_engine(),
             table_name,
@@ -35,7 +38,12 @@ class StagingSourceConnector(SourceConnector):
             run_id=_optional_uuid(ctx.config.get("filter_run_id")),
             batch_id=batch_id,
             status=ctx.config.get("staging_status", "staged"),
+            after_row_number=after_row_number,
+            limit=limit,
         )
+        ctx.metadata["chunk_row_count"] = len(rows)
+        if rows:
+            ctx.metadata["last_row_number"] = max(int(row["_row_number"]) for row in rows)
         return [_strip_meta(row) for row in rows]
 
     def validate(

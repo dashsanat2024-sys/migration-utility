@@ -72,7 +72,7 @@ Poll interval: `WORKER_POLL_SECONDS` (default 5).
 | `LANDING_ZONE_PATH` | `./data/landing` | Uploaded file storage |
 | `RUNNER_MODE` | `api` | `api` (sync) or `worker` (queue) |
 | `ASYNC_RUNS_ENABLED` | `true` | Queue runs when worker mode |
-| `RUN_CHUNK_SIZE` | `500` | Records per pipeline chunk |
+| `RUN_CHUNK_SIZE` | `500` | Staging rows per pipeline chunk (cursor pagination; checkpoint resume) |
 | `WORKER_POLL_SECONDS` | `5` | Worker idle poll |
 | `AUTH_ENABLED` | `false` | Enable JWT login + RBAC |
 | `AUTH_SECRET` | change-me | JWT signing secret |

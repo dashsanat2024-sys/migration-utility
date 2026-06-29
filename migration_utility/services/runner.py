@@ -13,7 +13,9 @@ from migration_utility.core.enums import AuditAction, BatchStatus, CandidateStat
 from migration_utility.core.events import EventBus, RunContext
 from migration_utility.core.pipeline import MigrationPipeline
 from migration_utility.datastore.models import Batch, MigrationRun, Project
+from migration_utility.datastore.session import get_engine
 from migration_utility.exceptions.service import ExceptionQueueService
+from migration_utility.ingest.staging import count_staged_rows_for_batch, staging_table_name
 from migration_utility.rules.loader import RuleLoader
 from migration_utility.selection.service import CandidateService
 from migration_utility.services.load_records import LoadRecordService
@@ -88,6 +90,7 @@ class RunService:
 
         candidate_service = CandidateService(self._db)
         use_selection = merged_config.get("use_selection", False)
+        resume_checkpoint = merged_config.pop("resume_from_checkpoint", None) or {}
 
         for batch in sorted(run.batches, key=lambda b: b.batch_number):
             batch.status = BatchStatus.RUNNING.value
@@ -138,9 +141,19 @@ class RunService:
                     "environment": project.environment,
                 },
             )
-            result = pipeline.run(ctx)
 
-            failures = ctx.metadata.get("validation_failures") or []
+            batch_outcome = self._execute_batch_pipeline(
+                run=run,
+                project=project,
+                batch=batch,
+                batch_config=batch_config,
+                ctx=ctx,
+                pipeline=pipeline,
+                entity=entity,
+                resume_checkpoint=resume_checkpoint,
+            )
+
+            failures = batch_outcome["validation_failures"]
             if failures:
                 exc_svc = ExceptionQueueService(self._db)
                 for idx, item in enumerate(failures[:200]):
@@ -157,7 +170,7 @@ class RunService:
                         error_reason=str(reason),
                     )
 
-            load_results = ctx.metadata.get("load_results")
+            load_results = batch_outcome["load_results"]
             load_summary = None
             if load_results:
                 loaded_count = len(load_results.get("loaded", []))
@@ -196,31 +209,24 @@ class RunService:
                     }
 
             batch.stats = {
-                "success": result.success,
+                "success": batch_outcome["success"],
                 "candidate_count": batch.batch_config.get("candidate_count"),
+                "chunks_processed": batch_outcome.get("chunks_processed", 1),
+                "records_processed": batch_outcome.get("records_processed", 0),
                 "load_summary": load_summary,
-                "stages": [
-                    {
-                        "stage": s.stage,
-                        "success": s.success,
-                        "records_processed": s.records_processed,
-                        "records_failed": s.records_failed,
-                        "message": s.message,
-                    }
-                    for s in result.stages
-                ],
+                "stages": batch_outcome["stages"],
             }
             batch.status = (
-                BatchStatus.COMPLETED.value if result.success else BatchStatus.FAILED.value
+                BatchStatus.COMPLETED.value if batch_outcome["success"] else BatchStatus.FAILED.value
             )
             self._update_candidate_statuses(
-                candidate_service, batch.id, result.success
+                candidate_service, batch.id, batch_outcome["success"]
             )
             self._db.flush()
 
-            if not result.success:
+            if not batch_outcome["success"]:
                 run.status = RunStatus.FAILED.value
-                run.error_message = result.error
+                run.error_message = batch_outcome.get("error")
                 run.completed_at = _utcnow()
                 run.progress_message = "Run failed"
                 run.result_summary = {"batches_completed": batch.batch_number, "failed": True}
@@ -232,6 +238,15 @@ class RunService:
                 self._db.commit()
                 return run
 
+            resume_checkpoint = {}
+            run.checkpoint = {
+                **(run.checkpoint or {}),
+                "batch_id": str(batch.id),
+                "last_row_number": batch_outcome.get("last_row_number", 0),
+                "resume_allowed": True,
+            }
+
+        run.checkpoint = {k: v for k, v in (run.checkpoint or {}).items() if k != "resume_from_checkpoint"}
         run.status = RunStatus.COMPLETED.value
         run.completed_at = _utcnow()
         run.progress_pct = 100
@@ -239,10 +254,7 @@ class RunService:
         run.result_summary = {
             "batches_completed": len(run.batches),
             "total_processed": sum(
-                s.get("records_processed", 0)
-                for b in run.batches
-                if b.stats
-                for s in b.stats.get("stages", [])
+                (b.stats or {}).get("records_processed", 0) for b in run.batches if b.stats
             ),
         }
         write_audit(
@@ -258,6 +270,140 @@ class RunService:
         self._db.commit()
         self._db.refresh(run)
         return run
+
+    def _execute_batch_pipeline(
+        self,
+        *,
+        run: MigrationRun,
+        project: Project,
+        batch: Batch,
+        batch_config: dict[str, Any],
+        ctx: RunContext,
+        pipeline: MigrationPipeline,
+        entity: str,
+        resume_checkpoint: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Run ingest→validate→transform→load, chunking when reading from staging."""
+        use_chunks = project.source_connector_key == "staging"
+        chunk_size = int(batch_config.get("chunk_size") or get_settings().run_chunk_size)
+
+        after_row_number = 0
+        if resume_checkpoint.get("batch_id") == str(batch.id):
+            after_row_number = int(resume_checkpoint.get("last_row_number") or 0)
+
+        batch_total = 0
+        if use_chunks:
+            batch_total = count_staged_rows_for_batch(
+                get_engine(),
+                staging_table_name(project.slug, entity),
+                project_id=project.id,
+                batch_id=batch.id,
+            )
+
+        all_validation_failures: list[Any] = []
+        all_loaded: list[dict[str, Any]] = []
+        all_failed: list[dict[str, Any]] = []
+        stage_summaries: list[dict[str, Any]] = []
+        chunks_processed = 0
+        records_processed = 0
+        last_row_number = after_row_number
+
+        while True:
+            chunk_config = {
+                **batch_config,
+                "after_row_number": after_row_number,
+                "chunk_index": chunks_processed if use_chunks else None,
+            }
+            chunk_ctx = RunContext(
+                project_id=ctx.project_id,
+                run_id=ctx.run_id,
+                batch_id=ctx.batch_id,
+                source_connector_key=ctx.source_connector_key,
+                target_adapter_key=ctx.target_adapter_key,
+                config=chunk_config,
+                metadata=dict(ctx.metadata),
+            )
+            result = pipeline.run(chunk_ctx)
+            chunks_processed += 1
+
+            failures = chunk_ctx.metadata.get("validation_failures") or []
+            all_validation_failures.extend(failures)
+
+            load_results = chunk_ctx.metadata.get("load_results") or {}
+            all_loaded.extend(load_results.get("loaded", []))
+            all_failed.extend(load_results.get("failed", []))
+            records_processed += result.total_processed
+
+            for stage in result.stages:
+                stage_summaries.append(
+                    {
+                        "stage": stage.stage,
+                        "success": stage.success,
+                        "records_processed": stage.records_processed,
+                        "records_failed": stage.records_failed,
+                        "message": stage.message,
+                        "chunk": chunks_processed,
+                    }
+                )
+
+            if not result.success:
+                run.checkpoint = {
+                    **(run.checkpoint or {}),
+                    "batch_id": str(batch.id),
+                    "last_batch": batch.batch_number,
+                    "last_row_number": after_row_number,
+                    "resume_allowed": True,
+                }
+                return {
+                    "success": False,
+                    "error": result.error,
+                    "validation_failures": all_validation_failures,
+                    "load_results": {"loaded": all_loaded, "failed": all_failed},
+                    "stages": stage_summaries,
+                    "chunks_processed": chunks_processed,
+                    "records_processed": records_processed,
+                    "last_row_number": after_row_number,
+                }
+
+            if not use_chunks:
+                last_row_number = int(chunk_ctx.metadata.get("last_row_number") or 0)
+                break
+
+            chunk_count = int(chunk_ctx.metadata.get("chunk_row_count") or 0)
+            if chunk_count == 0:
+                break
+
+            new_last = int(chunk_ctx.metadata.get("last_row_number") or after_row_number)
+            if new_last <= after_row_number:
+                break
+
+            after_row_number = new_last
+            last_row_number = after_row_number
+            run.checkpoint = {
+                **(run.checkpoint or {}),
+                "batch_id": str(batch.id),
+                "last_batch": batch.batch_number,
+                "last_row_number": after_row_number,
+                "resume_allowed": True,
+            }
+            if batch_total > 0:
+                done = min(after_row_number, batch_total)
+                run.progress_pct = min(95, 10 + int(85 * done / batch_total))
+                run.progress_message = f"Processed {done}/{batch_total} staged row(s)"
+            else:
+                run.progress_message = f"Processed chunk {chunks_processed}"
+            self._db.flush()
+
+        return {
+            "success": True,
+            "error": None,
+            "validation_failures": all_validation_failures,
+            "load_results": {"loaded": all_loaded, "failed": all_failed},
+            "stages": stage_summaries,
+            "chunks_processed": chunks_processed,
+            "records_processed": records_processed,
+            "last_row_number": last_row_number,
+        }
 
     def _update_candidate_statuses(
         self,

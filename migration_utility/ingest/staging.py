@@ -129,6 +129,8 @@ def fetch_staged_rows(
     batch_id: uuid.UUID | None = None,
     status: str = "staged",
     unassigned_only: bool = False,
+    after_row_number: int = 0,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     inspector = inspect(engine)
     if table_name not in inspector.get_table_names():
@@ -152,9 +154,16 @@ def fetch_staged_rows(
         params["batch_id"] = _bind(batch_id, dialect_name)
     if unassigned_only:
         clauses.append("_batch_id IS NULL")
+    if after_row_number > 0:
+        clauses.append("_row_number > :after_row_number")
+        params["after_row_number"] = after_row_number
+    if limit is not None and limit > 0:
+        params["limit"] = limit
 
+    limit_sql = " LIMIT :limit" if limit is not None and limit > 0 else ""
     sql = text(
-        f"SELECT * FROM {table_name} WHERE {' AND '.join(clauses)} ORDER BY _row_number"
+        f"SELECT * FROM {table_name} WHERE {' AND '.join(clauses)} "
+        f"ORDER BY _row_number{limit_sql}"
     )
     with engine.connect() as conn:
         result = conn.execute(sql, params)
@@ -193,6 +202,35 @@ def tag_staging_rows(
     with engine.begin() as conn:
         result = conn.execute(sql, params)
         return int(result.rowcount or 0)
+
+
+def count_staged_rows_for_batch(
+    engine: Engine,
+    table_name: str,
+    *,
+    project_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    status: str = "staged",
+) -> int:
+    inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return 0
+    dialect_name = engine.dialect.name
+    sql = text(
+        f"SELECT COUNT(*) FROM {table_name} "
+        f"WHERE _project_id = :project_id AND _batch_id = :batch_id AND _status = :status"
+    )
+    with engine.connect() as conn:
+        return int(
+            conn.execute(
+                sql,
+                {
+                    "project_id": _bind(project_id, dialect_name),
+                    "batch_id": _bind(batch_id, dialect_name),
+                    "status": status,
+                },
+            ).scalar_one()
+        )
 
 
 def count_staged_rows(engine: Engine, table_name: str, project_id: uuid.UUID) -> int:
