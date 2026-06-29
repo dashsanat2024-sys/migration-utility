@@ -56,7 +56,7 @@ Load records + exception queue + reconciliation
 | Staging extract | `connectors/staging.py` | Cursor-based `fetch_staged_rows(..., limit, after_row_number)` — **Phase 1 implemented** |
 | Pipeline | `services/runner.py` → `_execute_batch_pipeline` | Loops chunks for staging source; checkpoint `last_row_number` per chunk |
 | Chunk config | `config.py` → `run_chunk_size=500` | Honoured via `RUN_CHUNK_SIZE` env and `chunk_size` in batch config |
-| Kraken load | `connectors/kraken.py` | Single HTTP POST with **entire** record list |
+| Kraken load | `connectors/kraken.py` + `load_executor.py` | Sub-batched HTTPS with concurrency + rate-limit retry |
 | Worker | `worker/runner_worker.py` | **One** queued run at a time per process |
 | Selection default | `selection/service.py` | `max_candidates=1000` on seed profile |
 | Load audit | `services/load_records.py` | One DB insert per loaded/failed record |
@@ -72,9 +72,11 @@ Load records + exception queue + reconciliation
 
 **Remaining risk for 50k+:** Destination still receives one load call per chunk (not sub-batched); Kraken and audit DB writes are unchanged.
 
-### 4.2 Destination load batching (Phase 2 — not yet implemented)
+### 4.2 Destination load batching (Phase 2 — implemented)
 
-`KrakenClient.import_accounts()` sends one payload per pipeline run. No sub-batching, no concurrency, no retry/backoff for rate limits.
+`KrakenClient.import_accounts()` sub-batches via `LOAD_BATCH_SIZE` (default 200), runs up to `LOAD_CONCURRENCY` parallel requests, and retries HTTP 429 / `KT-CT-1199` with exponential backoff (`LOAD_RETRY_MAX`).
+
+**Remaining risk for 50k+:** Single worker process, selection cap, and per-record audit DB writes (Phases 3–4).
 
 ### 4.3 Single worker process
 
@@ -150,16 +152,18 @@ This is operationally fragile (manual scheduling, no chunking, memory spikes) �
 
 Set `RUN_CHUNK_SIZE=500` (default) or higher in `.env` / worker deployment.
 
-### Phase 2 — Destination load batching & rate limits (P0, ~1 week)
+### Phase 2 — Destination load batching & rate limits (P0) — **Done (v0.11.0+)**
 
-| Task | Detail |
+| Task | Status |
 |------|--------|
-| Sub-batch API calls | Split load into packets of N (e.g. 100–500 records) |
-| Concurrency limit | `LOAD_CONCURRENCY=4` with semaphore |
-| Retry + backoff | On HTTP 429 / `KT-CT-1199`, exponential backoff |
-| Config | `LOAD_BATCH_SIZE`, `LOAD_MAX_RPS`, `LOAD_RETRY_MAX` |
+| Sub-batch API calls | `LOAD_BATCH_SIZE` (default 200) via `run_batched_load()` |
+| Concurrency limit | `LOAD_CONCURRENCY` (default 4) with thread pool |
+| Retry + backoff | HTTP 429 / `KT-CT-1199` — `LOAD_RETRY_MAX`, exponential backoff |
+| Config | `LOAD_BATCH_SIZE`, `LOAD_CONCURRENCY`, `LOAD_MAX_RPS`, `LOAD_RETRY_MAX` |
 
 **Expected gain:** Saturate allowed destination throughput without tripping rate limits.
+
+Per-run overrides: pass `load_batch_size`, `load_concurrency`, etc. in `run_config`.
 
 ### Phase 3 — Parallel workers (P1, ~3–5 days)
 
@@ -255,8 +259,8 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 
 1. **Agree SLA** — 50k or 100k? Over what hours (8h batch window vs 24h)?  
 2. **Dress rehearsal** — 10k accounts in customer UAT with live (or pre-prod) API  
-3. **Implement Phase 1** — chunked pipeline (highest ROI)  
-4. **Implement Phase 2** — destination batching + rate-limit handling  
+3. ~~**Implement Phase 1**~~ — chunked pipeline ✅  
+4. ~~**Implement Phase 2**~~ — destination batching + rate-limit handling ✅  
 5. **Scale workers** — Phase 3 after load test shows DB/destination headroom  
 6. **Update capability matrix** — move “Bulk scale” from Partial → Yes after validated test
 
@@ -266,8 +270,8 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 
 | Phase | Effort | Unlocks |
 |-------|--------|---------|
-| Phase 1 — Chunked pipeline | ~1 week | Memory-safe 10k–50k per run, resume |
-| Phase 2 — Load batching | ~1 week | Destination throughput, rate limits |
+| Phase 1 — Chunked pipeline | Done | Memory-safe 10k–50k per run, resume |
+| Phase 2 — Load batching | Done | Destination throughput, rate limits |
 | Phase 3 — Parallel workers | ~3–5 days | Multi-run concurrency |
 | Phase 4 — DB optimisation | ~1 week | 100k+ audit rows/day |
 | Phase 5 — Wave scheduler | ~1 week | Operational “daily quota” UX |

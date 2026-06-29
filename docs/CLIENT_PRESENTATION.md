@@ -473,7 +473,7 @@ These are **roadmap items** — the current codebase already supports VPC Docker
 | Topic | Detail |
 |-------|--------|
 | **Today (Vercel demo)** | Not suitable — 30s timeout, no worker, ephemeral storage |
-| **Today (Docker + worker)** | Chunked staging reads honour `RUN_CHUNK_SIZE` (default 500); checkpoint resume per batch |
+| **Today (Docker + worker)** | Chunked staging reads (`RUN_CHUNK_SIZE`) + Kraken sub-batching (`LOAD_BATCH_SIZE`, concurrency, rate-limit retry) |
 | **50k–100k/day target** | Achievable with Phases 2–5: destination sub-batching, parallel workers, DB audit optimisation, wave scheduler |
 | **Deep dive** | [HIGH_VOLUME_MIGRATION.md](./HIGH_VOLUME_MIGRATION.md) — bottlenecks, roadmap, sizing |
 

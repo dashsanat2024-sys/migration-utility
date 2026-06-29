@@ -73,6 +73,10 @@ Poll interval: `WORKER_POLL_SECONDS` (default 5).
 | `RUNNER_MODE` | `api` | `api` (sync) or `worker` (queue) |
 | `ASYNC_RUNS_ENABLED` | `true` | Queue runs when worker mode |
 | `RUN_CHUNK_SIZE` | `500` | Staging rows per pipeline chunk (cursor pagination; checkpoint resume) |
+| `LOAD_BATCH_SIZE` | `200` | Records per destination API call (Kraken sub-batch) |
+| `LOAD_CONCURRENCY` | `4` | Parallel destination load batches |
+| `LOAD_MAX_RPS` | `0` | Max destination requests/sec (`0` = unlimited) |
+| `LOAD_RETRY_MAX` | `5` | Retries on HTTP 429 / `KT-CT-1199` with exponential backoff |
 | `WORKER_POLL_SECONDS` | `5` | Worker idle poll |
 | `AUTH_ENABLED` | `false` | Enable JWT login + RBAC |
 | `AUTH_SECRET` | change-me | JWT signing secret |

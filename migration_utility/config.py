@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     run_chunk_size: int = 500
     worker_poll_seconds: float = 2.0
 
+    # Destination load batching (Phase 2 — Kraken / live adapters)
+    load_batch_size: int = 200
+    load_concurrency: int = 4
+    load_max_rps: float = 0.0  # 0 = unlimited
+    load_retry_max: int = 5
+    load_retry_base_seconds: float = 1.0
+
     # AI-assisted layer (suggests only — never writes to Kraken)
     ai_enabled: bool = True
     ai_mock_mode: bool = True
