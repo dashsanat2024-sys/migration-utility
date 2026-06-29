@@ -49,3 +49,16 @@ Applied field mappings store:
 - No fine-tuning required initially
 
 See also: [STW_TRANSFORM_RULES.md](STW_TRANSFORM_RULES.md) for deterministic utility transforms.
+
+## Quick QA path (non-zero suggestions)
+
+1. Open project page and keep **plugin schema** active (do not use a plain custom target CSV without enum constraints).
+2. Upload source file: `samples/severn_trent/target_cmp_ai_gap_sample.csv`.
+3. Click **AI suggest**.
+4. Click **AI lookup gaps** -> should report enum gaps (e.g. `X`, `Z`, `STD`, `AUDIOBOOK`).
+5. Click **AI transform rules** -> should infer conditional/lookup transforms and populate review-first flags for uncovered values.
+
+If either action returns zero:
+- confirm source upload is a data extract CSV (not only a field-name list),
+- confirm `source_fields[*].sample_values` are present in catalog,
+- confirm target schema includes enum/boolean constraints.

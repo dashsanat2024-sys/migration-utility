@@ -11,6 +11,10 @@ it as a real Severn Trent or Kraken data sample.
 
 `target_cmp_sample_extract.csv` — 20 rows, 15 columns, comma-delimited, header row included.
 
+For AI QA specifically, use:
+
+`samples/severn_trent/target_cmp_ai_gap_sample.csv` — compact 8-row sample intentionally containing enum and transform gaps (`CUST_TYPE_FLAG = X`, `ACCT_STATUS_CODE = Z`, `DOC_FORMAT_PREF = AUDIOBOOK`, `DOC_FORMAT_PREF = STD`) so **AI lookup gaps** and **AI transform rules** produce non-zero review items.
+
 ## Column reference
 
 | Column | Type | Example | Notes |
