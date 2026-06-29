@@ -28,6 +28,9 @@ async def lifespan(app: FastAPI):
         app.state.registry.list_targets(),
     )
     logger.info("Landing zone: %s", settings.landing_zone_path)
+    from migration_utility.datastore.migrate import run_migrations
+
+    run_migrations()
     if settings.auth_enabled:
         from sqlalchemy.exc import OperationalError, ProgrammingError
 

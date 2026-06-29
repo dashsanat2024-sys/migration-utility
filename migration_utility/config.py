@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +57,13 @@ class Settings(BaseSettings):
     client_key_path: str = ""
     ca_bundle_path: str = ""
     http_timeout_seconds: float = 60.0
+
+    @field_validator("auth_enabled", "ai_enabled", "ai_mock_mode", "ai_force_heuristic", mode="before")
+    @classmethod
+    def _empty_str_bool(cls, value: Any) -> Any:
+        if value == "":
+            return None
+        return value
 
     @property
     def cors_origin_list(self) -> list[str]:

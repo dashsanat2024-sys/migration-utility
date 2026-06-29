@@ -10,6 +10,7 @@ const NAV_ICONS = {
   mapping: '◉',
   rules: '⚙',
   tariffs: '≋',
+  stw_transforms: '⎈',
   selection: '◎',
   runs: '▶',
   account_health: '♥',
@@ -20,7 +21,7 @@ const NAV_ICONS = {
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    tabs: ['wizard', 'ingest', 'mapping', 'rules', 'tariffs'],
+    tabs: ['wizard', 'ingest', 'mapping', 'rules', 'tariffs', 'stw_transforms'],
   },
   {
     label: 'Execution',

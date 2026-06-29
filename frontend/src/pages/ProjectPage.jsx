@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import ProjectShell from '../components/ProjectShell';
 import SchemaMappingScreen from '../components/SchemaMappingScreen';
@@ -109,7 +109,22 @@ export default function ProjectPage() {
   if (error) {
     return (
       <div className="app-grid">
-        <main className="project-main"><div className="alert error">{error}</div></main>
+        <header className="mobile-topbar">
+          <Link to="/" className="mobile-topbar-home" aria-label="Back to projects">←</Link>
+          <div className="mobile-topbar-copy">
+            <div className="mobile-topbar-title">Project unavailable</div>
+          </div>
+        </header>
+        <main className="project-main">
+          <div className="card">
+            <div className="alert error">{error}</div>
+            <p className="muted">
+              The workspace API failed — often caused by a pending database migration after deploy.
+              Retry after a minute or contact support if this persists.
+            </p>
+            <button type="button" className="btn primary" onClick={load}>Retry</button>
+          </div>
+        </main>
       </div>
     );
   }
