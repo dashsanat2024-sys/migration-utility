@@ -179,6 +179,9 @@ class FieldMappingRead(BaseModel):
     config: dict[str, Any]
     sort_order: int
     enabled: bool
+    ai_suggested: bool = False
+    ai_reasoning: str | None = None
+    ai_confidence: float | None = None
 
 
 class RuleSetRead(BaseModel):
@@ -293,6 +296,10 @@ class FieldMappingSuggestionRead(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
     status: str = "unmapped"
     match_confidence: str = "none"
+    confidence_score: float | None = None
+    ai_suggested: bool = False
+    ai_reasoning: str = ""
+    sample_values: list[str] = Field(default_factory=list)
 
 
 class DestinationPluginRead(BaseModel):
@@ -596,3 +603,45 @@ class StwTransformPreviewRead(BaseModel):
     rule_key: str
     result: Any
     record: dict[str, Any]
+
+
+class AiStatusRead(BaseModel):
+    enabled: bool
+    available: bool
+    provider: str
+    model: str | None = None
+    policy: str = ""
+
+
+class AiLookupSuggestionRead(BaseModel):
+    gaps: list[dict[str, Any]] = Field(default_factory=list)
+    summary: str = ""
+
+
+class AiTriageRequest(BaseModel):
+    use_exception_queue: bool = True
+    status: str | None = "open"
+    limit: int = Field(default=200, ge=1, le=1000)
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AiTriageReportRead(BaseModel):
+    total_errors: int = 0
+    clusters: list[dict[str, Any]] = Field(default_factory=list)
+    executive_summary: str = ""
+    provider: str = "heuristic"
+
+
+class AiSuggestLookupsRequest(BaseModel):
+    mappings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AiAssistantRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class AiAssistantReplyRead(BaseModel):
+    answer: str
+    references: list[str] = Field(default_factory=list)
+    suggested_actions: list[str] = Field(default_factory=list)

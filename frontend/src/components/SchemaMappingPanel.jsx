@@ -4,6 +4,7 @@ import { emptyTransformConfig } from '../constants/migration';
 import { getTransformTypes } from '../utils/projectProfile';
 import DestinationPluginCard from './DestinationPluginCard';
 import TransformConfigEditor from './TransformConfigEditor';
+import AiMappingAssistant from './AiMappingAssistant';
 
 function pickDefaultRuleSetId(sets, preferredId) {
   const ids = sets.map((rs) => String(rs.id));
@@ -263,6 +264,55 @@ export default function SchemaMappingPanel({
     }
   };
 
+  const aiSuggest = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const suggested = await api.aiSuggestMappings(project.id, entity);
+      setRows(suggested);
+      const mapped = suggested.filter((r) => r.source_field && r.target_field).length;
+      const aiCount = suggested.filter((r) => r.ai_suggested).length;
+      setMsg(`AI built ${suggested.length} row(s), ${mapped} mapped (${aiCount} AI-suggested — review before apply)`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const aiSuggestLookups = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.aiSuggestLookups(project.id, entity, rows);
+      let applied = 0;
+      if (result.gaps?.length) {
+        setRows((prev) => {
+          const next = [...prev];
+          result.gaps.forEach((gap) => {
+            const idx = next.findIndex((r) => r.target_field === gap.target_field);
+            if (idx >= 0 && gap.proposed_lookup && Object.keys(gap.proposed_lookup).length) {
+              next[idx] = {
+                ...next[idx],
+                transform_type: 'lookup',
+                config: { map: { ...(next[idx].config?.map || {}), ...gap.proposed_lookup }, default: '' },
+                ai_suggested: true,
+                ai_reasoning: gap.reasoning,
+              };
+              applied += 1;
+            }
+          });
+          return next;
+        });
+      }
+      setMsg(result.summary || `Applied ${applied} lookup table draft(s) — confirm before saving`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const updateRow = (index, field, value) => {
     setRows((prev) => {
       const list = [...prev];
@@ -329,6 +379,9 @@ export default function SchemaMappingPanel({
         target_field: r.target_field,
         transform_type: r.transform_type || 'copy',
         config: r.config || {},
+        ai_suggested: Boolean(r.ai_suggested),
+        ai_reasoning: r.ai_reasoning || null,
+        confidence_score: r.confidence_score ?? null,
       }));
     if (!mappings.length) {
       setError('No complete source → destination mappings to apply');
@@ -418,14 +471,25 @@ export default function SchemaMappingPanel({
             )}
           </label>
           {!hideTopActions && (
-            <button
-              type="button"
-              className="btn primary"
-              onClick={suggest}
-              disabled={busy || !sourceFields.length || !effectiveSchema}
-            >
-              Auto-suggest mappings
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={suggest}
+                disabled={busy || !sourceFields.length || !effectiveSchema}
+              >
+                Auto-suggest mappings
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={aiSuggest}
+                disabled={busy || !sourceFields.length || !effectiveSchema}
+                title="Semantic matching + enum lookup tables (requires review)"
+              >
+                AI suggest
+              </button>
+            </>
           )}
         </div>
       )}
@@ -543,6 +607,7 @@ export default function SchemaMappingPanel({
                     <div className="ftext">
                       <div className="fname">
                         {row.target_field}
+                        {row.ai_suggested && <span className="field-tag ai">AI</span>}
                         {isProvenance && <span className="field-tag provenance">provenance</span>}
                         {constraints.legacy_shape && <span className="field-tag legacy">legacy</span>}
                       </div>
@@ -654,6 +719,15 @@ export default function SchemaMappingPanel({
               </button>
               <button
                 type="button"
+                className="btn"
+                onClick={aiSuggestLookups}
+                disabled={busy || !rows.length}
+                title="Draft enum lookup tables from sample values"
+              >
+                AI lookup gaps
+              </button>
+              <button
+                type="button"
                 className="btn primary"
                 onClick={applyMappings}
                 disabled={busy || !applyRuleSetId}
@@ -663,6 +737,10 @@ export default function SchemaMappingPanel({
             </div>
           )}
         </div>
+      )}
+
+      {rows.length > 0 && (
+        <AiMappingAssistant project={project} entity={entity} rows={rows} />
       )}
 
       {showPluginPicker && (

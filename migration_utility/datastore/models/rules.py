@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -67,5 +67,8 @@ class FieldMapping(Base, TimestampMixin):
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ai_suggested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ai_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     rule_set: Mapped["RuleSet"] = relationship(back_populates="field_mappings")

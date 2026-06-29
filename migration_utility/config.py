@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     run_chunk_size: int = 500
     worker_poll_seconds: float = 2.0
 
+    # AI-assisted layer (suggests only — never writes to Kraken)
+    ai_enabled: bool = True
+    ai_mock_mode: bool = True
+    ai_force_heuristic: bool = False
+    openai_api_key: str = ""
+    ai_model: str = "gpt-4o-mini"
+
     # Corporate network (P0)
     http_proxy: str = ""
     https_proxy: str = ""

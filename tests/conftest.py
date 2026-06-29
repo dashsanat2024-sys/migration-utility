@@ -11,6 +11,8 @@ from migration_utility.config import get_settings
 def _default_auth_disabled(monkeypatch):
     """Prevent .env AUTH_ENABLED=true from breaking SQLite test fixtures."""
     monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("AI_MOCK_MODE", "true")
+    monkeypatch.setenv("AI_ENABLED", "true")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

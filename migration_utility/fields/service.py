@@ -159,6 +159,9 @@ class FieldCatalogService:
                     config=row.get("config") or {},
                     enabled=row.get("enabled", True),
                     sort_order=order,
+                    ai_suggested=bool(row.get("ai_suggested", False)),
+                    ai_reasoning=row.get("ai_reasoning"),
+                    ai_confidence=row.get("confidence_score") or row.get("ai_confidence"),
                 )
             )
         self._db.commit()

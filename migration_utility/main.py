@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from migration_utility import __version__
-from migration_utility.api.routes import account_health, auth, candidates, destination, exceptions, fields, health, ingest, kraken_errors, mapping, migration_runs, profiling, projects, reconciliation, rules, schema, selection, stw_transform_rules, tariffs, workspace
+from migration_utility.api.routes import account_health, ai_assisted, auth, candidates, destination, exceptions, fields, health, ingest, kraken_errors, mapping, migration_runs, profiling, projects, reconciliation, rules, schema, selection, stw_transform_rules, tariffs, workspace
 from migration_utility.auth.service import ensure_seed_admin
 from migration_utility.config import get_settings
 from migration_utility.connectors.registry import build_default_registry
@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(kraken_errors.router, prefix="/api")
     app.include_router(account_health.router, prefix="/api")
     app.include_router(stw_transform_rules.router, prefix="/api")
+    app.include_router(ai_assisted.router, prefix="/api")
     app.include_router(workspace.router, prefix="/api")
 
     return app

@@ -98,6 +98,7 @@ def _fields_from_data_extract(rows: list[dict[str, Any]]) -> list[dict[str, Any]
         raise ParseError("Data extract CSV has no column headers")
     fields: list[dict[str, Any]] = []
     for i, header in enumerate(headers):
+        samples = _distinct_column_values(header, rows)
         fields.append(
             _normalize_field(
                 {
@@ -105,11 +106,27 @@ def _fields_from_data_extract(rows: list[dict[str, Any]]) -> list[dict[str, Any]
                     "data_type": _infer_column_type(header, rows),
                     "required": False,
                     "description": f"Column from data extract ({len(rows)} sample row(s))",
+                    "sample_values": samples,
                 },
                 index=i,
             )
         )
     return fields
+
+
+def _distinct_column_values(column: str, rows: list[dict[str, Any]], *, limit: int = 30) -> list[str]:
+    seen: list[str] = []
+    for row in rows:
+        val = row.get(column)
+        if val is None:
+            continue
+        text = str(val).strip()
+        if not text or text in seen:
+            continue
+        seen.append(text)
+        if len(seen) >= limit:
+            break
+    return seen
 
 
 def _infer_column_type(column: str, rows: list[dict[str, Any]], *, sample_size: int = 20) -> str:
@@ -161,6 +178,7 @@ def _normalize_field(raw: Any, *, index: int) -> dict[str, Any]:
         "data_type": str(raw.get("data_type") or raw.get("type") or "string").strip().lower(),
         "required": bool(required),
         "description": str(raw.get("description") or raw.get("desc") or "").strip(),
+        "sample_values": list(raw.get("sample_values") or []),
     }
 
 

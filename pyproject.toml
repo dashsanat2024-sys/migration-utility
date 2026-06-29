@@ -1,6 +1,6 @@
 [project]
 name = "migration-utility"
-version = "0.10.0"
+version = "0.11.0"
 description = "Generic data migration engine — Phase 0 foundation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,6 +20,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ai = [
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langgraph>=0.2.0",
+]
 dev = [
     "httpx>=0.28.0",
     "pytest>=8.3.0",

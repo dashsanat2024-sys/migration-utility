@@ -155,6 +155,30 @@ export const api = {
       body: JSON.stringify({ rule_key: ruleKey, record }),
     }),
 
+  aiStatus: (projectId) => request(`/projects/${projectId}/ai/status`),
+  aiSuggestMappings: (projectId, entity) =>
+    request(`/projects/${projectId}/ai/suggest-mappings/${entity}?destination_first=true`, {
+      method: 'POST',
+    }),
+  aiSuggestLookups: (projectId, entity, mappings = []) =>
+    request(`/projects/${projectId}/ai/suggest-lookups/${entity}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mappings }),
+    }),
+  aiTriageErrors: (projectId, body = {}) =>
+    request(`/projects/${projectId}/ai/triage-errors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ use_exception_queue: true, status: 'open', ...body }),
+    }),
+  aiAssistant: (projectId, question, context = {}) =>
+    request(`/projects/${projectId}/ai/assistant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, context }),
+    }),
+
   listExceptions: (projectId, status) => {
     const q = status ? `?status=${encodeURIComponent(status)}` : '';
     return request(`/projects/${projectId}/exceptions${q}`);

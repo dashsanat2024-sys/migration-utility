@@ -1135,6 +1135,13 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 }
 .field-tag.provenance { background: var(--brand-tint); color: var(--brand); border: 1px solid rgba(107, 82, 176, 0.3); }
 .field-tag.legacy { background: var(--paper); color: var(--muted); border: 1px solid var(--border); }
+.field-tag.ai { background: #e8f4fd; color: #1565c0; border: 1px solid rgba(21, 101, 192, 0.25); }
+
+.ai-assistant .chat-log { max-height: 240px; overflow-y: auto; margin: 0.75rem 0; }
+.ai-assistant .chat-bubble { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border-radius: 8px; font-size: 0.9rem; }
+.ai-assistant .chat-bubble.user { background: var(--paper); border: 1px solid var(--border); }
+.ai-assistant .chat-bubble.assistant { background: #f0f7ff; border: 1px solid rgba(21, 101, 192, 0.15); }
+.ai-assistant .flex-grow { flex: 1; min-width: 0; }
 .map-row.provenance-row { background: rgba(107, 82, 176, 0.03); }
 .map-row.provenance-row:hover { background: rgba(107, 82, 176, 0.06); }
 .dest-chip { border-style: dashed; }

@@ -8,6 +8,7 @@ import IngestPanel from '../components/IngestPanel';
 import RunsPanel from '../components/RunsPanel';
 import ErrorsPanel from '../components/ErrorsPanel';
 import ExceptionQueuePanel from '../components/ExceptionQueuePanel';
+import AiErrorTriagePanel from '../components/AiErrorTriagePanel';
 import AccountHealthPanel from '../components/AccountHealthPanel';
 import StwTransformRulesPanel from '../components/StwTransformRulesPanel';
 import CandidatesPanel from '../components/CandidatesPanel';
@@ -203,6 +204,7 @@ export default function ProjectPage() {
             subtitle="Review ingest failures and manage the human-in-the-loop exception queue."
           />
           <div className="panel-stack">
+            <AiErrorTriagePanel project={project} />
             <ErrorsPanel project={project} />
             <ExceptionQueuePanel project={project} />
           </div>
