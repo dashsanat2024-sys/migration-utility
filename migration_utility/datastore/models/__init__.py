@@ -13,6 +13,7 @@ from migration_utility.datastore.models.mapping_approval import MappingApproval
 from migration_utility.datastore.models.rules import FieldMapping, RuleSet, ValidationRule
 from migration_utility.datastore.models.selection import SelectionCriterion, SelectionProfile
 from migration_utility.datastore.models.tariff import TariffMapping, TariffMappingSet
+from migration_utility.datastore.models.wave_plan import MigrationWavePlan
 
 __all__ = [
     "AccountHealthAssessment",
@@ -29,6 +30,7 @@ __all__ = [
     "LoadRecord",
     "MappingApproval",
     "MigrationRun",
+    "MigrationWavePlan",
     "Project",
     "RuleSet",
     "SelectionCriterion",

@@ -195,15 +195,17 @@ Set unique `WORKER_ID` per replica in K8s (`metadata.name`) for observability.
 
 Set `LOAD_AUDIT_MODE=summary` in production bulk cutover; use `full` for UAT debugging.
 
-### Phase 5 — Wave orchestration (P2, ~1 week)
+### Phase 5 — Wave orchestration (P2) — **Done (v0.11.0+)**
 
-| Task | Detail |
+| Task | Status |
 |------|--------|
-| Daily wave scheduler | API/cron: create N runs of M accounts on schedule |
-| Cohort readiness gate | Account health check before wave |
-| Auto-pause on error rate | Stop wave if failure % exceeds threshold |
+| Daily wave scheduler | `POST /api/projects/{id}/waves` — N queued runs × M accounts |
+| Cohort readiness gate | `require_health_gate` + latest account health assessment |
+| Auto-pause on error rate | `max_failure_pct` — pauses plan and cancels remaining queued runs |
 
-**Expected gain:** Operational “50k/day” or “100k/day” button for migration programme.
+**Expected gain:** Operational “50k/day” or “100k/day” via cron + worker fleet.
+
+Example: `wave_count: 5`, `accounts_per_wave: 10000` → 50k/day capacity.
 
 ---
 
@@ -272,7 +274,8 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 4. ~~**Implement Phase 2**~~ — destination batching + rate-limit handling ✅  
 5. ~~**Scale workers**~~ — Phase 3 parallel claiming ✅  
 6. ~~**DB optimisation**~~ — Phase 4 staging indexes + summary audit ✅  
-7. **Wave scheduler** — Phase 5 for operational daily quota UX
+7. ~~**Wave scheduler**~~ — Phase 5 wave API + auto-pause ✅  
+8. **Dress rehearsal** — 10k UAT load test; update capability matrix
 
 ---
 
@@ -284,7 +287,7 @@ A: No. Use it for mapping and workflow UX only. Production volume runs deploy in
 | Phase 2 — Load batching | Done | Destination throughput, rate limits |
 | Phase 3 — Parallel workers | Done | Multi-run concurrency, idempotent load |
 | Phase 4 — DB optimisation | Done | Staging indexes, bulk audit, summary mode |
-| Phase 5 — Wave scheduler | ~1 week | Operational “daily quota” UX |
+| Phase 5 — Wave scheduler | Done | Daily quota API, health gate, auto-pause |
 
 **Total:** ~4–5 weeks engineering + 1 week UAT load test before customer commitment.
 

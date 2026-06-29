@@ -473,8 +473,8 @@ These are **roadmap items** — the current codebase already supports VPC Docker
 | Topic | Detail |
 |-------|--------|
 | **Today (Vercel demo)** | Not suitable — 30s timeout, no worker, ephemeral storage |
-| **Today (Docker + worker)** | Phases 1–4: chunked staging, Kraken sub-batching, parallel workers, summary audit mode |
-| **50k–100k/day target** | Achievable with Phase 5 wave scheduler + UAT dress rehearsal |
+| **Today (Docker + worker)** | Phases 1–5 complete: chunked pipeline, sub-batched load, parallel workers, summary audit, wave API |
+| **50k–100k/day target** | `POST /api/projects/{id}/waves` (e.g. 5×10k) + worker fleet; validate in UAT dress rehearsal |
 | **Deep dive** | [HIGH_VOLUME_MIGRATION.md](./HIGH_VOLUME_MIGRATION.md) — bottlenecks, roadmap, sizing |
 
 **Customer message:** The platform supports governed waves at scale; very high daily throughput is a **deployment + engineering** programme (typically 2–4 weeks beyond Phase 1), not a single toggle.

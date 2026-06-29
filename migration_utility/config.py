@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     load_audit_mode: str = "full"  # full | summary
     load_audit_sample_size: int = 10
 
+    # Wave orchestration (Phase 5)
+    wave_require_health_gate: bool = True
+    wave_default_min_cohort_score: float = 85.0
+    wave_default_max_blocked_pct: float = 5.0
+    wave_default_max_failure_pct: float = 10.0
+
     # AI-assisted layer (suggests only — never writes to Kraken)
     ai_enabled: bool = True
     ai_mock_mode: bool = True

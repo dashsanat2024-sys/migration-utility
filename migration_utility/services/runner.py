@@ -19,6 +19,7 @@ from migration_utility.ingest.staging import count_staged_rows_for_batch, stagin
 from migration_utility.rules.loader import RuleLoader
 from migration_utility.selection.service import CandidateService
 from migration_utility.services.load_records import LoadRecordService
+from migration_utility.waves.service import WaveOrchestratorService, run_failure_pct
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,7 @@ class RunService:
                     run.error_message = str(exc)
                     run.completed_at = _utcnow()
                     self._db.commit()
+                    self._finalize_run(run, project)
                     return run
 
         candidate_service = CandidateService(self._db)
@@ -118,12 +120,14 @@ class RunService:
                         run.error_message = "No candidates matched selection criteria"
                         run.completed_at = _utcnow()
                         self._db.commit()
+                        self._finalize_run(run, project)
                         return run
                 except ValueError as exc:
                     run.status = RunStatus.FAILED.value
                     run.error_message = str(exc)
                     run.completed_at = _utcnow()
                     self._db.commit()
+                    self._finalize_run(run, project)
                     return run
 
             ctx_metadata = {
@@ -255,6 +259,7 @@ class RunService:
                     "resume_allowed": True,
                 }
                 self._db.commit()
+                self._finalize_run(run, project)
                 return run
 
             resume_checkpoint = {}
@@ -266,6 +271,7 @@ class RunService:
             }
 
         run.checkpoint = {k: v for k, v in (run.checkpoint or {}).items() if k != "resume_from_checkpoint"}
+        loaded_total, failed_total = self._aggregate_load_counts(run)
         run.status = RunStatus.COMPLETED.value
         run.completed_at = _utcnow()
         run.progress_pct = 100
@@ -275,6 +281,9 @@ class RunService:
             "total_processed": sum(
                 (b.stats or {}).get("records_processed", 0) for b in run.batches if b.stats
             ),
+            "loaded": loaded_total,
+            "failed": failed_total,
+            "failure_pct": round(run_failure_pct(run), 2),
         }
         write_audit(
             self._db,
@@ -288,7 +297,31 @@ class RunService:
         )
         self._db.commit()
         self._db.refresh(run)
+        self._finalize_run(run, project)
         return run
+
+    def _aggregate_load_counts(self, run: MigrationRun) -> tuple[int, int]:
+        loaded = failed = 0
+        for batch in run.batches:
+            load_summary = (batch.stats or {}).get("load_summary") or {}
+            loaded += int(load_summary.get("loaded", 0))
+            failed += int(load_summary.get("failed", 0))
+        return loaded, failed
+
+    def _finalize_run(self, run: MigrationRun, project: Project) -> None:
+        if run.status in (RunStatus.FAILED.value,) and run.result_summary is None:
+            loaded, failed = self._aggregate_load_counts(run)
+            run.result_summary = {
+                "failed": True,
+                "loaded": loaded,
+                "failed_count": failed,
+                "failure_pct": round(run_failure_pct(run), 2),
+            }
+        try:
+            WaveOrchestratorService(self._db).on_run_finished(run)
+            self._db.commit()
+        except Exception:
+            logger.exception("Wave plan update failed for run %s", run.id)
 
     def _execute_batch_pipeline(
         self,

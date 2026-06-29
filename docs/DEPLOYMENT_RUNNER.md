@@ -119,6 +119,34 @@ DATABASE_URL=postgresql://migration:migration@pgbouncer:6432/migration_utility
 
 Use **session** pooling if you rely on `FOR UPDATE SKIP LOCKED` across long-running worker transactions; **transaction** pooling is fine when each claim+commit is a short unit of work (current worker design).
 
+## Daily wave programme (Phase 5)
+
+Schedule N parallel queued runs (e.g. 5 × 10,000 accounts = 50k/day):
+
+```bash
+curl -X POST "$API/api/projects/$PROJECT_ID/waves" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Cutover day 1",
+    "wave_count": 5,
+    "accounts_per_wave": 10000,
+    "require_health_gate": true,
+    "max_failure_pct": 10,
+    "run_config": { "use_rules": true, "use_selection": true, "async": true }
+  }'
+```
+
+- **Health gate:** requires a recent `POST /account-health/assess` unless `require_health_gate: false`
+- **Auto-pause:** if a wave run fails or load failure % exceeds `max_failure_pct`, the plan pauses and cancels remaining queued runs
+- **Cron:** call the endpoint each morning or use `POST .../waves/{id}/resume` after operator review
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `WAVE_REQUIRE_HEALTH_GATE` | `true` | Block scheduling without cohort readiness |
+| `WAVE_DEFAULT_MIN_COHORT_SCORE` | `85` | Minimum cohort score |
+| `WAVE_DEFAULT_MAX_BLOCKED_PCT` | `5` | Max % blocked accounts |
+| `WAVE_DEFAULT_MAX_FAILURE_PCT` | `10` | Auto-pause threshold per wave run |
+
 ---
 
 ## Proxy and mTLS
