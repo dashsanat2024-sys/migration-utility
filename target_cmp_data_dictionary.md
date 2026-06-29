@@ -27,7 +27,7 @@ it as a real Severn Trent or Kraken data sample.
 | `COMPLAINT_FLAG` | char(1) bool | `Y` / `N` | Whether the account has an open complaint. No direct 1:1 in the trimmed `AccountType` field list used in the prototype — a good example of a source field with no obvious destination match, useful for testing the "unmapped source field" state. |
 | `ACCT_STATUS_CODE` | char(1) enum | `A`, `P`, `W`, `D` | `A`=Active, `P`=Pending, `W`=Withdrawn, `D`=Dormant. Maps to Kraken's `status` (`AccountStatus`, required) via lookup — note the source codes don't line up 1:1 with Kraken's enum values, so this is a good test case for the lookup/transform UI. |
 | `DOC_FORMAT_PREF` | string enum | `STD`, `LARGE`, `BRAILLE` | Maps to Kraken's `documentAccessibility` (optional) — `STD` has no Kraken equivalent (Kraken only has `AUDIO`/`BRAILLE`/`LARGE_PRINT`, no "standard" value), another good edge case: what happens when a source value has no destination mapping at all. |
-| `LEGACY_SYS_REF` | string | `CMP-0019204477` | Maps to Kraken's `urn` (optional) — the field Kraken explicitly provides for "reference number from a 3rd party enrolment." |
+| `LEGACY_SYS_REF` | string (14 chars) | `CMP-0019204477` | Maps to Kraken's `urn` (optional) — the field Kraken explicitly provides for "reference number from a 3rd party enrolment." |
 | `DATE_ACCOUNT_OPENED` | date (ISO) | `2014-03-11` | No direct field in the trimmed `AccountType` list in the prototype; real Kraken has `createdAt`, but that's typically system-set on record creation rather than backfilled — another useful edge case for transform/exclusion logic. |
 
 ## Edge cases deliberately included

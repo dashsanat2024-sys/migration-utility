@@ -1117,6 +1117,54 @@ textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 .arrow { color: var(--text-faint); font-size: 14px; text-align: center; }
 .map-empty { padding: 2rem; text-align: center; }
 
+.review-priority-panel {
+  margin: 12px 18px 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(146, 64, 14, 0.2);
+  background: var(--warning-dim);
+  border-radius: 8px;
+}
+.review-priority-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.review-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-priority-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.review-priority-flags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.review-flag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.review-flag.uncovered {
+  color: var(--error);
+  border-color: rgba(185, 28, 28, 0.35);
+  background: var(--error-dim);
+}
+.review-flag.low {
+  color: var(--warning);
+  border-color: rgba(146, 64, 14, 0.3);
+}
+
 .field-chip {
   display: flex; align-items: center; gap: 9px; padding: 8px 10px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px; min-width: 0;

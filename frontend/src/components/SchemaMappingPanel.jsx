@@ -56,6 +56,11 @@ function isMigrationProvenanceRow(row, schemaFieldByName) {
   return fieldConstraints(row, schemaFieldByName).migration_provenance === true;
 }
 
+function rowConfidenceScore(row) {
+  if (typeof row.confidence_score === 'number') return row.confidence_score;
+  return 1;
+}
+
 export default function SchemaMappingPanel({
   project,
   entity,
@@ -194,6 +199,29 @@ export default function SchemaMappingPanel({
     return list;
   }, [rows, search, filter, schemaFieldByName]);
 
+  const reviewRows = useMemo(() => {
+    return rows
+      .filter((row) => row.target_field && row.source_field)
+      .map((row) => {
+        const uncovered = row.uncovered_source_values?.length || 0;
+        const score = rowConfidenceScore(row);
+        const lowConfidence = score < 0.75;
+        return {
+          row,
+          uncovered,
+          score,
+          lowConfidence,
+          priority: uncovered > 0 ? 0 : lowConfidence ? 1 : 2,
+        };
+      })
+      .filter((item) => item.priority < 2)
+      .sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if (a.priority === 0 && a.uncovered !== b.uncovered) return b.uncovered - a.uncovered;
+        return a.score - b.score;
+      });
+  }, [rows]);
+
   const uploadSource = async (file) => {
     if (!file) return;
     setBusy(true);
@@ -306,6 +334,25 @@ export default function SchemaMappingPanel({
         });
       }
       setMsg(result.summary || `Applied ${applied} lookup table draft(s) — confirm before saving`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const aiSuggestTransformRules = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const suggested = await api.aiSuggestTransformRules(project.id, entity, rows);
+      setRows(suggested);
+      const transformCount = suggested.filter((r) => r.transform_type && r.transform_type !== 'copy').length;
+      const uncovered = suggested.reduce((count, row) => count + (row.uncovered_source_values?.length || 0), 0);
+      setMsg(
+        `AI inferred ${transformCount} transform rule(s)` +
+          (uncovered ? `; flagged ${uncovered} uncovered source value(s) for review` : ''),
+      );
     } catch (err) {
       setError(err.message);
     } finally {
@@ -566,6 +613,32 @@ export default function SchemaMappingPanel({
             <span />
           </div>
 
+          {reviewRows.length > 0 && (
+            <div className="review-priority-panel">
+              <div className="review-priority-head">
+                <strong>Needs review first</strong>
+                <span className="muted">
+                  {reviewRows.length} rule(s): uncovered values and/or low confidence
+                </span>
+              </div>
+              <div className="review-priority-list">
+                {reviewRows.map(({ row, uncovered, score }, idx) => (
+                  <div key={`${row.target_field}-${idx}`} className="review-priority-item">
+                    <span className="mono">{row.source_field} → {row.target_field}</span>
+                    <div className="review-priority-flags">
+                      {uncovered > 0 && (
+                        <span className="review-flag uncovered">{uncovered} uncovered</span>
+                      )}
+                      {score < 0.75 && (
+                        <span className="review-flag low">confidence {Math.round(score * 100)}%</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {!rows.length && effectiveSchema && (
             <div className="map-empty muted">
               Upload source fields and click &quot;Auto-suggest mappings&quot; to plug source fields into the destination schema.
@@ -612,6 +685,11 @@ export default function SchemaMappingPanel({
                         {constraints.legacy_shape && <span className="field-tag legacy">legacy</span>}
                       </div>
                       <div className="ftype">{formatDestFieldType(row, schemaFieldByName)}</div>
+                      {row.uncovered_source_values?.length > 0 && (
+                        <div className="fdesc">
+                          Uncovered: {row.uncovered_source_values.join(', ')}
+                        </div>
+                      )}
                       {row.target_description && (
                         <div className="fdesc">{row.target_description}</div>
                       )}
@@ -725,6 +803,15 @@ export default function SchemaMappingPanel({
                 title="Draft enum lookup tables from sample values"
               >
                 AI lookup gaps
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={aiSuggestTransformRules}
+                disabled={busy || !rows.length}
+                title="Infer transform rules from source sample values"
+              >
+                AI transform rules
               </button>
               <button
                 type="button"

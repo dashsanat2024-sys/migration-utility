@@ -166,6 +166,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mappings }),
     }),
+  aiSuggestTransformRules: (projectId, entity, mappings = []) =>
+    request(`/projects/${projectId}/ai/suggest-transform-rules/${entity}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mappings }),
+    }),
   aiTriageErrors: (projectId, body = {}) =>
     request(`/projects/${projectId}/ai/triage-errors`, {
       method: 'POST',

@@ -13,6 +13,8 @@ def _default_auth_disabled(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "false")
     monkeypatch.setenv("AI_MOCK_MODE", "true")
     monkeypatch.setenv("AI_ENABLED", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("AI_FORCE_HEURISTIC", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

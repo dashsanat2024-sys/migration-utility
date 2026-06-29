@@ -300,6 +300,7 @@ class FieldMappingSuggestionRead(BaseModel):
     ai_suggested: bool = False
     ai_reasoning: str = ""
     sample_values: list[str] = Field(default_factory=list)
+    uncovered_source_values: list[str] = Field(default_factory=list)
 
 
 class DestinationPluginRead(BaseModel):
@@ -633,6 +634,10 @@ class AiTriageReportRead(BaseModel):
 
 
 class AiSuggestLookupsRequest(BaseModel):
+    mappings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AiSuggestTransformRulesRequest(BaseModel):
     mappings: list[dict[str, Any]] = Field(default_factory=list)
 
 

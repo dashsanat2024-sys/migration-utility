@@ -12,6 +12,7 @@ from migration_utility.ai import (
     AiErrorTriageService,
     AiLookupService,
     AiMappingService,
+    AiTransformRuleService,
     ai_status,
     is_ai_available,
 )
@@ -23,6 +24,7 @@ from migration_utility.api.schemas import (
     AiLookupSuggestionRead,
     AiStatusRead,
     AiSuggestLookupsRequest,
+    AiSuggestTransformRulesRequest,
     AiTriageRequest,
     AiTriageReportRead,
     FieldMappingSuggestionRead,
@@ -93,6 +95,36 @@ def ai_suggest_lookups(
     }
     result = AiLookupService().suggest_lookups(mapping_rows, column_samples)
     return AiLookupSuggestionRead(**result.model_dump())
+
+
+@router.post("/suggest-transform-rules/{entity}", response_model=list[FieldMappingSuggestionRead])
+def ai_suggest_transform_rules(
+    project_id: UUID,
+    entity: str,
+    body: AiSuggestTransformRulesRequest | None = None,
+    db: Session = Depends(get_db_session),
+    plugin_registry: DestinationPluginRegistry = Depends(get_plugin_registry),
+):
+    if not is_ai_available():
+        raise HTTPException(status_code=503, detail="AI-assisted layer is disabled")
+    project = _get_project(project_id, db)
+    svc = FieldCatalogService(db)
+    catalog = svc.get(project_id, entity)
+    if not catalog:
+        raise HTTPException(status_code=400, detail="No field catalog for entity")
+
+    req = body or AiSuggestTransformRulesRequest()
+    mapping_rows = req.mappings
+    if not mapping_rows:
+        target_fields = svc.resolve_destination_fields(project, entity, plugin_registry)
+        mapping_rows = AiMappingService().suggest_schema_mappings(catalog.source_fields, target_fields)
+
+    column_samples = {
+        f["name"]: f.get("sample_values") or []
+        for f in catalog.source_fields
+    }
+    rows = AiTransformRuleService().suggest_transform_rules(mapping_rows, column_samples)
+    return [FieldMappingSuggestionRead(**row) for row in rows]
 
 
 @router.post("/triage-errors", response_model=AiTriageReportRead)

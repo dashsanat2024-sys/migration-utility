@@ -17,6 +17,7 @@ Source extract → AI-assisted layer (suggests) → Deterministic transform/vali
 |---------|----------|-----|
 | Semantic field mapping | LangChain structured output (or heuristic fallback) | `POST .../ai/suggest-mappings/{entity}` |
 | Lookup table generation | LangChain / heuristic enum gap analysis | `POST .../ai/suggest-lookups/{entity}` |
+| Transform-rule inference from sample values | Deterministic profiler + enum/boolean/date inference | `POST .../ai/suggest-transform-rules/{entity}` |
 | Error batch triage | LangGraph loop (or heuristic clustering) | `POST .../ai/triage-errors` |
 | Mapping assistant chat | LangChain / heuristic Q&A | `POST .../ai/assistant` |
 
@@ -39,6 +40,7 @@ Applied field mappings store:
 - `ai_suggested` — true when mapping came from AI layer
 - `ai_reasoning` — why the model/heuristic suggested the link
 - `ai_confidence` — 0–1 score
+- `uncovered_source_values` (draft response field) — values observed in source samples with no confident destination mapping
 
 ## What we do not do
 

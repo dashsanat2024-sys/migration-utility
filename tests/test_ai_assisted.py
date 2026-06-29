@@ -3,6 +3,7 @@
 from migration_utility.ai.assistant import AiAssistantService
 from migration_utility.ai.heuristic import apply_enum_lookup_transforms, enrich_schema_mappings, suggest_lookups_heuristic, triage_errors_heuristic
 from migration_utility.ai.mapping import AiMappingService
+from migration_utility.ai.transform_rules import AiTransformRuleService
 from migration_utility.ai.provider import ai_status, provider_mode
 from migration_utility.fields.catalog_parser import suggest_schema_mappings
 
@@ -67,6 +68,43 @@ def test_lookup_gap_detection():
     assert len(result.gaps) == 1
     assert "X" in result.gaps[0].unmapped_values
     assert result.gaps[0].proposed_lookup.get("O") == "OCCUPIER"
+
+
+def test_transform_rules_detect_boolean_and_enum_gaps():
+    rows = [
+        {
+            "source_field": "STEPPED_RATE_FLAG",
+            "target_field": "isOnSteppedTariff",
+            "target_type": "boolean",
+            "target_constraints": {},
+            "sample_values": ["Y", "N"],
+        },
+        {
+            "source_field": "DOC_FORMAT_PREF",
+            "target_field": "documentAccessibility",
+            "target_type": "enum",
+            "target_constraints": {
+                "enum_name": "DocumentAccessibilityChoices",
+                "enum": ["AUDIO", "BRAILLE", "LARGE_PRINT"],
+            },
+            "sample_values": ["STD", "BRAILLE", "LARGE"],
+        },
+    ]
+    samples = {
+        "STEPPED_RATE_FLAG": ["Y", "N"],
+        "DOC_FORMAT_PREF": ["STD", "BRAILLE", "LARGE"],
+    }
+    out = AiTransformRuleService().suggest_transform_rules(rows, samples)
+
+    bool_row = next(r for r in out if r["target_field"] == "isOnSteppedTariff")
+    assert bool_row["transform_type"] == "conditional"
+    assert bool_row["config"]["map"]["Y"] == "true"
+    assert bool_row["config"]["map"]["N"] == "false"
+
+    enum_row = next(r for r in out if r["target_field"] == "documentAccessibility")
+    assert enum_row["transform_type"] == "lookup"
+    assert "STD" in enum_row["uncovered_source_values"]
+    assert enum_row["config"]["map"]["BRAILLE"] == "BRAILLE"
 
 
 def test_error_triage_clusters():
