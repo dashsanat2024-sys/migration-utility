@@ -85,6 +85,16 @@ export default function ProjectPage() {
     }
   }, [projectRef]);
 
+  /** Refresh workspace data without unmounting the active panel. */
+  const refreshWorkspace = useCallback(async () => {
+    try {
+      const ws = await api.getProjectWorkspace(projectRef);
+      setWorkspace(ws);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [projectRef]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -145,21 +155,21 @@ export default function ProjectPage() {
           project={project}
           workspace={workspace}
           onNavigateTab={goToTab}
-          onWorkspaceRefresh={load}
+          onWorkspaceRefresh={refreshWorkspace}
         />
       )}
 
       {activeTab === 'wizard' && (
         <>
           <PanelHeader title="Guided Migration Setup" subtitle="Step through extract, mapping, selection, and execution." />
-          <MigrationWizard project={project} entities={entities} onRefresh={load} onNavigateTab={goToTab} />
+          <MigrationWizard project={project} entities={entities} onRefresh={refreshWorkspace} onNavigateTab={goToTab} />
         </>
       )}
 
       {activeTab === 'ingest' && (
         <>
           <PanelHeader title="Extract & Stage" subtitle="Upload source extract files and review staging stats." />
-          <IngestPanel project={project} entities={entities} onRefresh={load} />
+          <IngestPanel project={project} entities={entities} />
         </>
       )}
 

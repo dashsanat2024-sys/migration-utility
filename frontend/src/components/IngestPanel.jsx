@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { StatusBadge } from './Layout';
 
-export default function IngestPanel({ project, entities, onRefresh }) {
+export default function IngestPanel({ project, entities }) {
   const [entity, setEntity] = useState(entities[0] || 'account');
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
@@ -52,8 +52,7 @@ export default function IngestPanel({ project, entities, onRefresh }) {
       }
       setFile(null);
       e.target.reset();
-      load();
-      onRefresh?.();
+      await load();
     } catch (err) {
       setError(err.message);
     } finally {
