@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""End-to-end smoke test using bundled Target/CMP sample extract.
+"""End-to-end smoke test using bundled sample files.
+
+Flow:
+  1. Utility mapping — target_cmp_ai_gap_sample.csv (field catalog + Kraken mappings)
+  2. Runnable pipeline — accounts.csv (canonical ingest schema + migration run)
 
 Usage:
   python tools/e2e_sample_flow.py
@@ -8,7 +12,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -18,7 +21,8 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE_CSV = ROOT / "samples" / "severn_trent" / "target_cmp_ai_gap_sample.csv"
+MAPPING_SAMPLE = ROOT / "samples" / "severn_trent" / "target_cmp_ai_gap_sample.csv"
+INGEST_SAMPLE = ROOT / "samples" / "accounts.csv"
 API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api").rstrip("/")
 
 
@@ -33,24 +37,89 @@ def ok(step: str, detail: str = "") -> None:
     print(f"OK  {step}{suffix}")
 
 
+def upload_source(client: httpx.Client, project_id: str, path: Path) -> int:
+    with path.open("rb") as fh:
+        resp = client.post(
+            f"/projects/{project_id}/fields/account/source",
+            files={"file": (path.name, fh, "text/csv")},
+        )
+    if resp.status_code != 200:
+        fail(f"upload source fields ({path.name})", resp)
+    return len(resp.json().get("source_fields", []))
+
+
+def suggest_mapped(client: httpx.Client, project_id: str) -> list[dict]:
+    resp = client.post(
+        f"/projects/{project_id}/fields/account/suggest-mappings",
+        params={"destination_first": "true"},
+    )
+    if resp.status_code != 200:
+        fail("suggest mappings", resp)
+    suggestions = resp.json()
+    return [s for s in suggestions if s.get("source_field") and s.get("target_field")]
+
+
+def create_draft_rule_set(client: httpx.Client, project_id: str, slug: str, label: str) -> str:
+    resp = client.post(
+        f"/projects/{project_id}/rules",
+        json={"entity": "account", "name": f"{label} {slug}"},
+    )
+    if resp.status_code != 201:
+        fail(f"create rule set ({label})", resp)
+    return resp.json()["id"]
+
+
+def apply_mappings(client: httpx.Client, project_id: str, rule_set_id: str, mapped: list[dict]) -> None:
+    mappings = [
+        {
+            "source_field": row["source_field"],
+            "target_field": row["target_field"],
+            "transform_type": row.get("transform_type") or "copy",
+            "config": row.get("config") or {},
+            "enabled": True,
+        }
+        for row in mapped
+    ]
+    if not mappings:
+        fail("no mappings to apply")
+    resp = client.post(
+        f"/projects/{project_id}/fields/account/apply-mappings/{rule_set_id}",
+        json={"mappings": mappings},
+    )
+    if resp.status_code != 204:
+        fail("apply mappings", resp)
+
+
+def upload_ingest(client: httpx.Client, project_id: str, path: Path) -> dict:
+    with path.open("rb") as fh:
+        resp = client.post(
+            f"/projects/{project_id}/ingest/upload",
+            data={"entity": "account"},
+            files={"file": (path.name, fh, "text/csv")},
+        )
+    if resp.status_code != 201:
+        fail(f"ingest upload ({path.name})", resp)
+    return resp.json()
+
+
 def main() -> None:
-    if not SAMPLE_CSV.is_file():
-        fail(f"Sample file missing: {SAMPLE_CSV}")
+    for path in (MAPPING_SAMPLE, INGEST_SAMPLE):
+        if not path.is_file():
+            fail(f"Sample file missing: {path}")
 
     slug = f"e2e-{uuid.uuid4().hex[:8]}"
     with httpx.Client(base_url=API_BASE, timeout=120.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             fail("health check", health)
-        version = health.json().get("version", "?")
-        ok("health", f"v{version}")
+        ok("health", f"v{health.json().get('version', '?')}")
 
         project = client.post(
             "/projects",
             json={
                 "name": f"E2E Sample {slug}",
                 "slug": slug,
-                "description": "Automated E2E with target_cmp_ai_gap_sample.csv",
+                "description": "Automated E2E — utility mapping + accounts ingest",
                 "target_system": "kraken",
                 "source_connector_key": "staging",
                 "target_adapter_key": "kraken",
@@ -77,82 +146,63 @@ def main() -> None:
         workspace = client.get(f"/projects/{slug}/workspace", params={"entity": "account"})
         if workspace.status_code != 200:
             fail("workspace", workspace)
-        ok("workspace", f"{len(workspace.json().get('destination_schema', {}).get('fields', []))} dest fields")
+        ok("workspace", "Kraken destination schema loaded")
 
-        with SAMPLE_CSV.open("rb") as fh:
-            source_upload = client.post(
-                f"/projects/{project_id}/fields/account/source",
-                files={"file": (SAMPLE_CSV.name, fh, "text/csv")},
-            )
-        if source_upload.status_code != 200:
-            fail("upload source field catalog", source_upload)
-        field_count = len(source_upload.json().get("source_fields", []))
-        ok("upload source fields", f"{field_count} columns")
+        # --- Utility mapping track (Target/CMP sample) ---
+        n = upload_source(client, project_id, MAPPING_SAMPLE)
+        ok("utility source fields", f"{n} columns from {MAPPING_SAMPLE.name}")
 
-        suggest = client.post(
-            f"/projects/{project_id}/fields/account/suggest-mappings",
-            params={"destination_first": "true"},
-        )
-        if suggest.status_code != 200:
-            fail("suggest mappings", suggest)
-        suggestions = suggest.json()
-        mapped = [s for s in suggestions if s.get("source_field") and s.get("target_field")]
-        ok("suggest mappings", f"{len(mapped)}/{len(suggestions)} mapped")
+        utility_mapped = suggest_mapped(client, project_id)
+        ok("utility suggest mappings", f"{len(utility_mapped)} mapped")
 
-        rules = client.get(f"/projects/{project_id}/rules", params={"entity": "account"})
-        if rules.status_code != 200:
-            fail("list rule sets", rules)
-        rule_sets = rules.json()
-        if not rule_sets:
-            fail("no rule set found for project")
-        rule_set_id = rule_sets[0]["id"]
+        utility_rs = create_draft_rule_set(client, project_id, slug, "Utility mappings")
+        apply_mappings(client, project_id, utility_rs, utility_mapped)
+        ok("utility apply mappings", str(len(utility_mapped)))
 
-        mappings = [
-            {
-                "source_field": row["source_field"],
-                "target_field": row["target_field"],
-                "transform_type": row.get("transform_type") or "copy",
-                "config": row.get("config") or {},
-                "enabled": True,
-            }
-            for row in mapped
-        ]
-        if not mappings:
-            fail("no mappings to apply")
+        # --- Runnable pipeline (canonical accounts sample) ---
+        n = upload_source(client, project_id, INGEST_SAMPLE)
+        ok("run source fields", f"{n} columns from {INGEST_SAMPLE.name}")
 
-        apply_resp = client.post(
-            f"/projects/{project_id}/fields/account/apply-mappings/{rule_set_id}",
-            json={"mappings": mappings},
-        )
-        if apply_resp.status_code != 204:
-            fail("apply mappings", apply_resp)
-        ok("apply mappings", str(len(mappings)))
+        run_mapped = suggest_mapped(client, project_id)
+        if not run_mapped:
+            run_mapped = [
+                {"source_field": "id", "target_field": "number", "transform_type": "copy", "config": {}},
+                {"source_field": "name", "target_field": "billingName", "transform_type": "copy", "config": {}},
+                {
+                    "source_field": "status",
+                    "target_field": "status",
+                    "transform_type": "lookup",
+                    "config": {"map": {"active": "ACTIVE", "inactive": "INACTIVE"}},
+                },
+            ]
+        ok("run suggest mappings", f"{len(run_mapped)} mapped")
 
-        with SAMPLE_CSV.open("rb") as fh:
-            ingest = client.post(
-                f"/projects/{project_id}/ingest/upload",
-                data={"entity": "account"},
-                files={"file": (SAMPLE_CSV.name, fh, "text/csv")},
-            )
-        if ingest.status_code != 201:
-            fail("ingest upload", ingest)
-        ingest_body = ingest.json()
-        ok(
-            "ingest & stage",
-            f"{ingest_body.get('staged_count', 0)} staged, {ingest_body.get('error_count', 0)} errors",
-        )
+        run_rs = create_draft_rule_set(client, project_id, slug, "Run mappings")
+        apply_mappings(client, project_id, run_rs, run_mapped)
+        ok("run apply mappings", str(len(run_mapped)))
 
-        stats = client.get(f"/projects/{project_id}/staging/account/stats")
+        ingest_body = upload_ingest(client, project_id, INGEST_SAMPLE)
+        staged = ingest_body.get("staged_count", 0)
+        errors = ingest_body.get("error_count", 0)
+        ok("ingest & stage", f"{staged} staged, {errors} errors")
+        if staged == 0:
+            fail("no rows staged — cannot run migration")
+
+        stats = client.get(f"/projects/{project_id}/ingest/staging/account/stats")
         if stats.status_code != 200:
             fail("staging stats", stats)
-        row_count = stats.json().get("row_count", 0)
-        ok("staging stats", f"{row_count} rows")
+        ok("staging stats", f"{stats.json().get('row_count', 0)} rows")
 
         run = client.post(
             f"/projects/{project_id}/runs",
             json={
                 "name": f"E2E run {slug}",
-                "run_config": {"entity": "account", "use_rules": True, "use_selection": False},
+                "run_config": {
+                    "entity": "account",
+                    "use_rules": True,
+                    "use_selection": False,
+                    "rule_set_id": run_rs,
+                },
                 "batches": [{"batch_number": 1}],
             },
         )
@@ -160,15 +210,14 @@ def main() -> None:
             fail("create run", run)
         run_id = run.json()["id"]
         run_status = run.json().get("status", "?")
-        ok("create run", f"id={run_id[:8]}… status={run_status}")
+        ok("create run", f"status={run_status}")
 
-        for _ in range(30):
+        for _ in range(45):
             progress = client.get(f"/runs/{run_id}/progress")
             if progress.status_code != 200:
                 fail("run progress", progress)
             body = progress.json()
             status = body.get("status")
-            pct = body.get("progress_pct", 0)
             if status in ("completed", "failed", "cancelled"):
                 run_status = status
                 break
@@ -178,14 +227,22 @@ def main() -> None:
 
         loads = client.get(f"/runs/{run_id}/loads")
         load_count = len(loads.json()) if loads.status_code == 200 else 0
-        ok("run finished", f"status={run_status}, loads={load_count}")
+        ok("run finished", f"status={run_status}, destination loads={load_count}")
 
         if run_status != "completed":
             detail = client.get(f"/runs/{run_id}")
-            fail(f"run status {run_status}", detail if detail.status_code == 200 else None)
+            msg = detail.json().get("error_message", "") if detail.status_code == 200 else ""
+            fail(f"run status {run_status}" + (f": {msg}" if msg else ""), detail if detail.status_code != 200 else None)
 
-        print(f"\nE2E passed — project slug: {slug}")
-        print(f"Open: https://migration-utility.vercel.app/projects/{slug}")
+        ui_base = (
+            "https://migration-utility.vercel.app"
+            if "vercel.app" in API_BASE
+            else "http://127.0.0.1:5174"
+        )
+        print(f"\nE2E passed — project: {slug}")
+        print(f"UI: {ui_base}/projects/{slug}")
+        print(f"Mapping sample: {MAPPING_SAMPLE.name}")
+        print(f"Ingest sample:  {INGEST_SAMPLE.name}")
 
 
 if __name__ == "__main__":
