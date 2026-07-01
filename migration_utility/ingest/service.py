@@ -113,16 +113,17 @@ class IngestService:
                 idx for idx in range(1, len(records) + 1) if idx not in error_rows
             ]
 
-            staged = insert_staged_rows(
-                self._db.connection(),
-                table,
-                project_id=project.id,
-                source_file_id=ingest_file.id,
-                rows=valid,
-                row_numbers=valid_row_numbers,
-                run_id=run_id,
-                batch_id=batch_id,
-            )
+            with self.engine.begin() as conn:
+                staged = insert_staged_rows(
+                    conn,
+                    table,
+                    project_id=project.id,
+                    source_file_id=ingest_file.id,
+                    rows=valid,
+                    row_numbers=valid_row_numbers,
+                    run_id=run_id,
+                    batch_id=batch_id,
+                )
 
             exc_svc = ExceptionQueueService(self._db)
             for row_number, raw, reason in errors:
@@ -171,14 +172,15 @@ class IngestService:
             raise ValueError("Source ingest file or staging table not found")
 
         table = ensure_staging_table(self.engine, ingest_file.staging_table, entity_schema)
-        insert_staged_rows(
-            self._db.connection(),
-            table,
-            project_id=project.id,
-            source_file_id=ingest_file.id,
-            rows=valid,
-            row_numbers=[error.row_number],
-        )
+        with self.engine.begin() as conn:
+            insert_staged_rows(
+                conn,
+                table,
+                project_id=project.id,
+                source_file_id=ingest_file.id,
+                rows=valid,
+                row_numbers=[error.row_number],
+            )
 
         error.resolved = True
         if ingest_file:

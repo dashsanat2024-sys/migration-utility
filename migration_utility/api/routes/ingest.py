@@ -62,6 +62,8 @@ async def upload_and_ingest(
             content_type=file.content_type,
         )
         ingest_file = service.process_file(ingest_file, project)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Ingest failed: {exc}") from exc
     finally:
         tmp_path.unlink(missing_ok=True)
 
