@@ -108,9 +108,9 @@ export default function StwTransformRulesPanel({ project }) {
   const [previewRecord, setPreviewRecord] = useState(
     JSON.stringify(
       {
-        account_category: 'STW Measured',
+        account_category: 'Measured',
         property_type: 'Semi Detached',
-        area_code: 'Zone 23 - STW Chester',
+        area_code: 'Zone 23 - Chester',
         meter_tag: 'M1',
         target_product_code: 'WTR-01',
         target_rate_band: 'RB1',
@@ -167,7 +167,7 @@ export default function StwTransformRulesPanel({ project }) {
   };
 
   const resetRules = async () => {
-    if (!window.confirm('Reset all STW rule overrides to defaults?')) return;
+    if (!window.confirm('Reset all utility transform rule overrides to defaults?')) return;
     setSaving(true);
     setError('');
     try {
@@ -195,15 +195,15 @@ export default function StwTransformRulesPanel({ project }) {
   };
 
   if (!rules) {
-    return <p className="muted">Loading STW transform rules…</p>;
+    return <p className="muted">Loading utility transform rules…</p>;
   }
 
   return (
     <div className="panel-stack">
       <div className="card">
         <p className="muted">
-          Severn Trent Water transformation rules from the specification (property type, area code, rate band).
-          Defaults are seeded from the rule documents; override lookup tables and flags per project below.
+          Industry utility transformation rules (property type, area code, rate band).
+          Defaults are seeded from specification documents; override lookup tables and flags per project below.
         </p>
         <div className="toolbar-row">
           {RULE_TABS.map((t) => (

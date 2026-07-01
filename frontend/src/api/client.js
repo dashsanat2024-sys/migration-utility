@@ -35,7 +35,14 @@ async function request(path, options = {}) {
   if (authToken && !headers.Authorization) {
     headers.Authorization = `Bearer ${authToken}`;
   }
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    throw new Error(
+      'Cannot reach the API. Start the backend: `.venv/bin/uvicorn migration_utility.main:app --reload --port 8000` (or set VITE_API_BASE to a deployed API).',
+    );
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -47,6 +54,11 @@ async function request(path, options = {}) {
       if (err instanceof Error && err.message.includes('HTML')) {
         throw err;
       }
+    }
+    if (response.status === 500 && detail === 'Internal Server Error' && API_BASE === '/api') {
+      throw new Error(
+        'API backend is not running on port 8000. Start it with: `.venv/bin/uvicorn migration_utility.main:app --reload --port 8000`',
+      );
     }
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
@@ -366,4 +378,17 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plugin_id: pluginId, confirm_orphan: confirmOrphan }),
     }),
+
+  listWavePlans: (projectId) => request(`/projects/${projectId}/waves`),
+  scheduleWavePlan: (projectId, body) =>
+    request(`/projects/${projectId}/waves`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  getWavePlanStatus: (projectId, planId) => request(`/projects/${projectId}/waves/${planId}`),
+  pauseWavePlan: (projectId, planId) =>
+    request(`/projects/${projectId}/waves/${planId}/pause`, { method: 'POST' }),
+  resumeWavePlan: (projectId, planId) =>
+    request(`/projects/${projectId}/waves/${planId}/resume`, { method: 'POST' }),
 };

@@ -198,6 +198,15 @@ export function buildWizardSteps(profile) {
   }
 
   steps.push({
+    id: 'selection',
+    order: steps.length + 1,
+    label: 'Candidate selection',
+    title: 'Include / exclude cohort',
+    description: 'Define which accounts are in scope for migration runs using selection profiles.',
+    required: false,
+  });
+
+  steps.push({
     id: 'execute',
     order: steps.length + 1,
     label: 'Execute',
@@ -213,21 +222,22 @@ export function buildWizardSteps(profile) {
 export function buildProjectTabs(profile) {
   const features = profile?.features || {};
   const tabs = [
-    { id: 'wizard', label: 'Migration Wizard', always: true },
+    { id: 'wizard', label: 'Guided Setup', always: true },
     { id: 'ingest', label: 'Upload & Stage', always: true },
-    { id: 'rules', label: 'Rules & Transforms', hidden: features.transform_rules === false },
     { id: 'mapping', label: 'Schema & Mapping', always: true },
+    { id: 'rules', label: 'Rules & Transforms', hidden: features.transform_rules === false },
   ];
   if (features.tariff_mapping) {
     tabs.push({ id: 'tariffs', label: 'Tariff Mapping' });
   }
   if (profile?.industry === 'utility') {
-    tabs.push({ id: 'stw_transforms', label: 'STW Transforms' });
+    tabs.push({ id: 'utility_transforms', label: 'Utility Transforms' });
   }
   tabs.push(
-    { id: 'account_health', label: 'Account Health' },
     { id: 'selection', label: 'Candidate Selection' },
+    { id: 'account_health', label: 'Account Health' },
     { id: 'runs', label: 'Migration Runs' },
+    { id: 'waves', label: 'Wave Programme' },
     { id: 'reconciliation', label: 'Reconciliation' },
     { id: 'errors', label: 'Errors & Exceptions' },
   );

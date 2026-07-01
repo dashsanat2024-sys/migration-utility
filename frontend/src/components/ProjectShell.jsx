@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { buildProjectTabs } from '../constants/migrationProfile';
 import { getProjectProfile, profileSummary } from '../utils/projectProfile';
 import BrandLogo from './BrandLogo';
+import MigrationJourney from './MigrationJourney';
 
 const NAV_ICONS = {
   wizard: '◧',
@@ -10,9 +11,11 @@ const NAV_ICONS = {
   mapping: '◉',
   rules: '⚙',
   tariffs: '≋',
+  utility_transforms: '⎈',
   stw_transforms: '⎈',
   selection: '◎',
   runs: '▶',
+  waves: '≡',
   account_health: '♥',
   errors: '⚠',
   reconciliation: '⊞',
@@ -20,16 +23,24 @@ const NAV_ICONS = {
 
 const NAV_SECTIONS = [
   {
-    label: 'Workspace',
-    tabs: ['wizard', 'ingest', 'mapping', 'rules', 'tariffs', 'stw_transforms'],
+    label: '1 · Prepare',
+    tabs: ['wizard', 'ingest'],
   },
   {
-    label: 'Execution',
-    tabs: ['account_health', 'runs', 'errors', 'reconciliation'],
+    label: '2 · Map & Transform',
+    tabs: ['mapping', 'rules', 'tariffs', 'utility_transforms', 'stw_transforms'],
   },
   {
-    label: 'Configure',
-    tabs: ['selection'],
+    label: '3 · Select & Health',
+    tabs: ['selection', 'account_health'],
+  },
+  {
+    label: '4 · Execute',
+    tabs: ['runs', 'waves'],
+  },
+  {
+    label: '5 · Reconcile',
+    tabs: ['reconciliation', 'errors'],
   },
 ];
 
@@ -146,6 +157,7 @@ export default function ProjectShell({
       </header>
 
       <main className="project-main" ref={mainRef}>
+        <MigrationJourney activeTab={activeTab} onNavigate={handleTabChange} />
         {children}
       </main>
 

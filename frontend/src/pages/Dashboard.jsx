@@ -43,11 +43,38 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
+      <section className="dashboard-hero card">
+        <div className="dashboard-hero-copy">
+          <p className="eyebrow">Arthavi Migration Utility</p>
+          <h1>Enterprise data migration, simplified</h1>
+          <p className="muted hero-lead">
+            Configure once, validate continuously, and execute with confidence — from file extract
+            through schema mapping, cohort selection, and destination load.
+          </p>
+          <div className="hero-actions">
+            <button className="btn primary" type="button" onClick={() => setShowForm(true)}>
+              Start new migration
+            </button>
+          </div>
+        </div>
+        <div className="dashboard-flow" aria-hidden="true">
+          <div className="flow-node"><span>1</span>Extract</div>
+          <div className="flow-arrow">→</div>
+          <div className="flow-node"><span>2</span>Map</div>
+          <div className="flow-arrow">→</div>
+          <div className="flow-node"><span>3</span>Select</div>
+          <div className="flow-arrow">→</div>
+          <div className="flow-node"><span>4</span>Run</div>
+          <div className="flow-arrow">→</div>
+          <div className="flow-node"><span>5</span>Reconcile</div>
+        </div>
+      </section>
+
       <div className="page-header">
         <div>
-          <h1>Migration Projects</h1>
-          <p className="muted">Generic data migration — configure by type, industry, and integration approach.</p>
+          <h2>Your projects</h2>
+          <p className="muted">Each project follows the guided migration journey.</p>
         </div>
         <button className="btn primary" onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : '+ New Project'}
@@ -76,7 +103,8 @@ export default function Dashboard() {
       ) : projects.length === 0 ? (
         <div className="empty-state">
           <h3>No projects yet</h3>
-          <p>Create a project — choose migration type, industry, and integration approach to get started.</p>
+          <p>Create a project and follow the guided setup: upload extract → map fields → select cohort → run migration.</p>
+          <button type="button" className="btn primary" onClick={() => setShowForm(true)}>Create your first project</button>
         </div>
       ) : (
         <div className="card-grid">

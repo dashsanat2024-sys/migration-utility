@@ -121,6 +121,7 @@ export default function RunsPanel({ project, entities }) {
         <h2>Start Migration Run</h2>
         <p className="muted">
           Executes the pipeline: ingest → validate → transform → load using the configured connectors.
+          Failed runs can be resumed from checkpoint. For high-volume cutover, use the Wave Programme tab.
         </p>
         {error && <div className="alert error">{error}</div>}
         <div className="form-grid">

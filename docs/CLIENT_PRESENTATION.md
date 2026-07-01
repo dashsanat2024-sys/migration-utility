@@ -5,7 +5,7 @@
 **Live demo:** https://migration-utility.vercel.app  
 **Repository:** https://github.com/dashsanat2024-sys/migration-utility  
 **Audience:** Programme sponsors, migration leads, IT architecture, procurement  
-**Last updated:** June 2026
+**Last updated:** June 2026 (v0.11 — high-volume Phases 1–5, wave orchestration)
 
 ---
 
@@ -20,6 +20,8 @@ Extract → Profile → Map → Validate → Transform → Approve → Load → 
 ```
 
 Teams configure migrations through a web UI. Rules, mappings, and approvals are stored in PostgreSQL. A deterministic engine executes every load — **AI assists with suggestions but never writes to destination systems autonomously**.
+
+**Scale:** The platform supports **governed daily migration waves** (e.g. 5 × 10,000 accounts) via Docker + async workers. Chunked staging, sub-batched destination loads, parallel workers, and auto-pause on failure rates are **implemented** (v0.11).
 
 **Primary reference use case:** Utilities industry migration (e.g. legacy billing/CRM extract → Kraken AccountType), with pluggable destination schemas for other industries.
 
@@ -37,6 +39,7 @@ Teams configure migrations through a web UI. Rules, mappings, and approvals are 
 | **Deployable in customer network** | Docker Compose for VPC/on-prem; corporate proxy and mTLS supported for outbound API calls |
 | **Pre-migration readiness** | Account health scoring and Kraken error catalog help exclude blocked accounts before a run |
 | **Reconciliation & reporting** | Funnel metrics, variance analysis, and JSON export for BI tools (Metabase, Power BI) |
+| **High-volume programme** | Daily wave scheduler, cohort health gate, auto-pause on failure rate — up to 50k–100k accounts/day with sized worker fleet |
 
 ---
 
@@ -107,24 +110,52 @@ Pipeline stages: **Ingest → Validate → Transform → Load**
 | **Sync** | Run executes inline in API (default; suitable for demos and small pilots) |
 | **Async** | API queues run; dedicated worker process executes with progress and resume |
 
-- Audit log per run
-- Load records with request/response payloads
-- Target adapters: mock, file export, Kraken REST, SAP IDoc (mock/live configurable)
+**High-volume engine (v0.11 — implemented):**
 
-### 3.8 Tariff & product mapping (utilities)
+| Capability | What it does |
+|------------|--------------|
+| **Chunked staging** | Reads `RUN_CHUNK_SIZE` rows at a time (default 500); checkpoint resume mid-batch |
+| **Sub-batched load** | Kraken/live adapters send `LOAD_BATCH_SIZE` records per API call (default 200) |
+| **Load concurrency** | Up to `LOAD_CONCURRENCY` parallel destination requests (default 4) |
+| **Rate-limit retry** | HTTP 429 / `KT-CT-1199` exponential backoff |
+| **Parallel workers** | `docker compose up --scale worker=4` — `SKIP LOCKED` run claiming |
+| **Idempotent load** | Skips URNs already loaded; `Idempotency-Key` on Kraken batches |
+| **Summary audit** | `LOAD_AUDIT_MODE=summary` — sample payloads + counts (not 1 row per record) |
+
+- Audit log per run; load records with request/response payloads (or summary mode)
+- Target adapters: mock, file export, Kraken REST, SAP IDoc (mock/live configurable)
+- Failure rate tracked per run (`failure_pct` in result summary)
+
+### 3.8 Wave orchestration (daily migration programme)
+
+Schedule **N queued runs × M accounts** as a governed wave plan:
+
+| Feature | Detail |
+|---------|--------|
+| **Wave API** | `POST /api/projects/{id}/waves` — creates N async runs |
+| **Health gate** | Blocks scheduling until account health assessment passes (configurable) |
+| **Auto-pause** | Pauses plan and cancels queued runs if failure % exceeds threshold |
+| **Operator control** | `POST .../waves/{id}/pause` and `.../resume` |
+
+**Example — 50,000 accounts/day:** `wave_count: 5`, `accounts_per_wave: 10000`, worker fleet processes runs in parallel.
+
+Requires **Docker + worker** (not the Vercel demo alone).
+
+### 3.9 Tariff & product mapping (utilities)
 
 - Tariff mapping sets with own approval workflow
 - Load signed-off tariff codes to destination (mock or live)
 - STW transform rules UI for property type, area code, rate band
 
-### 3.9 Account health & error intelligence
+### 3.10 Account health & error intelligence
 
 - Kraken error catalog (~920 codes, range-indexed)
 - Account health assessment: readiness score (0–100), blocker detection
 - Sync blockers to exception queue
 - Migration testing plan (dress rehearsal phases)
+- **Cohort readiness gate** for wave scheduling
 
-### 3.10 Reconciliation & reporting
+### 3.11 Reconciliation & reporting
 
 - Project-level summary: staged, runs, loads, open errors
 - Run-level funnel: staged → selected → loaded/failed
@@ -132,13 +163,13 @@ Pipeline stages: **Ingest → Validate → Transform → Load**
 - Sample record diff (source vs target payload)
 - JSON export for BI dashboards
 
-### 3.11 Exception queue (human-in-the-loop)
+### 3.12 Exception queue (human-in-the-loop)
 
 - Assign, override, resolve exceptions
 - Audit history per exception
 - Sync from ingest errors and account health fallout
 
-### 3.12 Security (opt-in)
+### 3.13 Security (opt-in)
 
 - JWT login and role-based access (`mapping_lead`, `business_analyst`, `product_owner`, etc.)
 - Workflow transitions tied to authenticated user when enabled
@@ -165,7 +196,20 @@ Pipeline stages: **Ingest → Validate → Transform → Load**
 | 11 | **Reconciliation** tab | Funnel, variance, sample diffs |
 | 12 | **Errors & Exceptions** | Triage and remediate failures |
 
-### 4.2 AI feature test path
+### 4.2 Production wave workflow (50k+ accounts/day)
+
+| Step | Action | Outcome |
+|------|--------|---------|
+| 1 | Deploy Docker Compose + scale workers (`--scale worker=4`) | Async run capacity |
+| 2 | Set `LOAD_AUDIT_MODE=summary` for bulk cutover | Reduced DB write load |
+| 3 | Run **account health assessment** on full cohort | Readiness score + blockers |
+| 4 | Resolve blockers in exception queue | Gate-ready cohort |
+| 5 | `POST /api/projects/{id}/waves` — e.g. 5 × 10k accounts | Wave plan + queued runs |
+| 6 | Monitor wave status; auto-pause on failure breach | Safe cutover |
+| 7 | `POST .../waves/{id}/resume` after remediation | Continue programme |
+| 8 | Reconciliation + BI export per wave | Programme reporting |
+
+### 4.3 AI feature test path
 
 Use the bundled QA sample for non-zero AI suggestions:
 
@@ -174,7 +218,7 @@ Use the bundled QA sample for non-zero AI suggestions:
 3. Click **AI suggest** → **AI lookup gaps** → **AI transform rules**
 4. Review the **Needs review first** panel for uncovered values (e.g. `STD`, `X`, `Z`)
 
-### 4.3 Roles in the workflow
+### 4.4 Roles in the workflow
 
 | Role | Typical responsibility |
 |------|------------------------|
@@ -216,14 +260,19 @@ Use the bundled QA sample for non-zero AI suggestions:
 └───────────────────────────┬─────────────────────────────────┘
                             │ REST /api/*
 ┌───────────────────────────▼─────────────────────────────────┐
-│  FastAPI  —  validation engine, transform engine, workflow    │
-│  Destination plugins  ·  AI suggestion layer  ·  Pipeline   │
+│  FastAPI  —  validation, transforms, workflow, waves API      │
+│  Destination plugins  ·  AI layer  ·  Chunked pipeline        │
 └───────┬─────────────────────┬────────────────────┬──────────┘
         │                     │                    │
         ▼                     ▼                    ▼
    PostgreSQL           Landing zone          Destination APIs
-   (metadata,          (uploaded files)      (Kraken, SAP, file)
-    staging)
+   (staging, runs,      (uploaded files)      (Kraken, SAP, file)
+    wave plans)
+        ▲
+        │  SKIP LOCKED claim
+   ┌────┴────┐
+   │ Worker  │  × N replicas (Docker / K8s)
+   └─────────┘
 ```
 
 ---
@@ -259,6 +308,12 @@ docker compose up --build -d
 | PostgreSQL | localhost:5433 |
 
 **Includes:** API + UI + PostgreSQL + **async worker** (queued runs, progress, resume).
+
+Scale workers for parallel wave processing:
+
+```bash
+docker compose up --build -d --scale worker=4
+```
 
 Apply migrations:
 
@@ -309,10 +364,20 @@ Deploy the same containers to any orchestrator:
 ### Phase 4 — Production readiness (Week 2+)
 
 - [ ] Enable `AUTH_ENABLED=true` with strong `AUTH_SECRET`
-- [ ] Size worker and database for expected volume (`RUN_CHUNK_SIZE`, batch strategy)
+- [ ] Size worker fleet (`--scale worker=N`) and tune `RUN_CHUNK_SIZE`, `LOAD_BATCH_SIZE`
+- [ ] Set `LOAD_AUDIT_MODE=summary` for production bulk runs
 - [ ] Account health assessment on full cohort
+- [ ] Schedule daily waves via `POST /api/projects/{id}/waves`
 - [ ] Dress rehearsal run with migration testing plan
 - [ ] BI export wired to customer reporting
+
+### Phase 5 — Cutover programme (production)
+
+- [ ] Agree daily capacity target (e.g. 50k or 100k accounts/day)
+- [ ] Confirm destination API rate limits with billing platform vendor
+- [ ] Configure `max_failure_pct` and health gate thresholds
+- [ ] Morning cron or operator runbook for wave scheduling
+- [ ] PgBouncer in front of PostgreSQL if 4+ workers
 
 ---
 
@@ -326,7 +391,17 @@ Deploy the same containers to any orchestrator:
 | `CORS_ORIGINS` | Allowed frontend origins |
 | `RUNNER_MODE` | `api` (sync) or `worker` (async queue) |
 | `ASYNC_RUNS_ENABLED` | Enable queued runs |
-| `RUN_CHUNK_SIZE` | Records per pipeline chunk (default 500) |
+| `RUN_CHUNK_SIZE` | Staging rows per pipeline chunk (default 500) |
+| `LOAD_BATCH_SIZE` | Records per destination API call (default 200) |
+| `LOAD_CONCURRENCY` | Parallel destination load batches (default 4) |
+| `LOAD_MAX_RPS` | Max destination requests/sec (`0` = unlimited) |
+| `LOAD_RETRY_MAX` | Retries on rate limits (default 5) |
+| `LOAD_IDEMPOTENT` | Skip already-loaded URNs (default true) |
+| `LOAD_AUDIT_MODE` | `full` or `summary` (bulk cutover) |
+| `LOAD_AUDIT_SAMPLE_SIZE` | Samples persisted per batch in summary mode |
+| `WAVE_REQUIRE_HEALTH_GATE` | Require account health before wave schedule |
+| `WAVE_DEFAULT_MAX_FAILURE_PCT` | Auto-pause threshold per wave (default 10%) |
+| `WORKER_ID` | Worker identity for run claiming (auto if empty) |
 | `AUTH_ENABLED` | Enable JWT login |
 | `AUTH_SECRET` | JWT signing secret |
 | `HTTP_PROXY` / `HTTPS_PROXY` | Corporate egress |
@@ -428,14 +503,16 @@ These are **roadmap items** — the current codebase already supports VPC Docker
 - Utilities-specific templates (tariffs, STW transforms, account health)
 - Reconciliation and exception queue for operational migration programmes
 - Deployable inside customer network with proxy/mTLS
+- **Production-scale wave orchestration** — implemented in v0.11 (not roadmap-only)
 
 ### Current gaps (set expectations early)
 
 - No native SSO/SAML (JWT opt-in today)
 - Limited pre-built source connectors (file extract primary; DB replication roadmap)
-- Bulk scale (100M+ rows) requires sizing and tuning — **Phase 1 chunked pipeline** (500 rows/chunk) is in place; 50k–100k/day needs Phases 2–5 (see [HIGH_VOLUME_MIGRATION.md](./HIGH_VOLUME_MIGRATION.md))
+- **100M+ row** single-table loads still need dedicated sizing (chunking + summary audit in place for 50k–100k/day programmes)
 - AI does not autonomously repair or load data — suggestions only
 - Live destination APIs require customer credentials and network path
+- Vercel demo is **not** suitable for bulk cutover (use Docker + workers)
 
 ---
 
@@ -463,6 +540,7 @@ These are **roadmap items** — the current codebase already supports VPC Docker
 - **Who:** Utilities, CRM, ERP migration programmes  
 - **How:** Upload extract → map to destination schema → approve rules → run → reconcile  
 - **AI:** Suggests mappings, lookups, transforms, error triage — human approves everything  
+- **Scale:** Chunked pipeline + wave API — 50k/day example: 5 waves × 10k accounts + worker fleet  
 - **Deploy:** Vercel demo · Docker VPC · Any cloud (Postgres + containers + static UI)  
 - **Try:** https://migration-utility.vercel.app  
 
@@ -470,14 +548,42 @@ These are **roadmap items** — the current codebase already supports VPC Docker
 
 ## 14. High-volume migration (50k–100k accounts/day)
 
+### Capability status (v0.11 — all phases implemented)
+
+| Phase | Capability | Client benefit |
+|-------|------------|----------------|
+| **1** | Chunked staging (`RUN_CHUNK_SIZE`) | Memory-safe large batches; resume mid-run |
+| **2** | Sub-batched load + rate-limit retry | Saturate destination API without tripping limits |
+| **3** | Parallel workers (`SKIP LOCKED`) | N× throughput with N worker replicas |
+| **4** | Staging indexes + summary audit | Lower DB cost at 100k+ records/day |
+| **5** | Wave API + health gate + auto-pause | Operational daily quota with safety guardrails |
+
+### Deployment matrix
+
 | Topic | Detail |
 |-------|--------|
-| **Today (Vercel demo)** | Not suitable — 30s timeout, no worker, ephemeral storage |
-| **Today (Docker + worker)** | Phases 1–5 complete: chunked pipeline, sub-batched load, parallel workers, summary audit, wave API |
-| **50k–100k/day target** | `POST /api/projects/{id}/waves` (e.g. 5×10k) + worker fleet; validate in UAT dress rehearsal |
-| **Deep dive** | [HIGH_VOLUME_MIGRATION.md](./HIGH_VOLUME_MIGRATION.md) — bottlenecks, roadmap, sizing |
+| **Vercel demo** | Mapping, AI, sync pilots only — no worker, 30s timeout |
+| **Docker + worker** | Full high-volume stack; scale with `--scale worker=4` |
+| **50k/day example** | `POST /waves` with `wave_count: 5`, `accounts_per_wave: 10000` |
+| **100k/day example** | 10 waves × 10k, or 5 × 20k with tuned workers + destination capacity |
+| **Deep dive** | [HIGH_VOLUME_MIGRATION.md](./HIGH_VOLUME_MIGRATION.md) |
 
-**Customer message:** The platform supports governed waves at scale; very high daily throughput is a **deployment + engineering** programme (typically 2–4 weeks beyond Phase 1), not a single toggle.
+### Wave API example (for slides / runbooks)
+
+```bash
+curl -X POST "$API/api/projects/$PROJECT_ID/waves" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Cutover day 1",
+    "wave_count": 5,
+    "accounts_per_wave": 10000,
+    "require_health_gate": true,
+    "max_failure_pct": 10,
+    "run_config": { "use_rules": true, "use_selection": true, "async": true }
+  }'
+```
+
+**Customer message:** The platform delivers a **governed cutover programme** — not a single “migrate all” button. Success requires VPC deployment, worker fleet, destination API agreement, account health gate, and a UAT dress rehearsal. Engineering phases 1–5 are **shipped**; programme delivery is configuration + operations.
 
 ---
 

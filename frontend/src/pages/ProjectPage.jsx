@@ -16,6 +16,7 @@ import MappingPanel from '../components/MappingPanel';
 import ReconciliationPanel from '../components/ReconciliationPanel';
 import RulesPanel from '../components/RulesPanel';
 import TariffWizardStep from '../components/TariffWizardStep';
+import WavesPanel from '../components/WavesPanel';
 import { buildProjectTabs } from '../constants/migrationProfile';
 import { DEFAULT_PROJECT_TAB, isValidProjectTab, projectPath } from '../constants/projectRoutes';
 import { getProjectProfile } from '../utils/projectProfile';
@@ -98,8 +99,11 @@ export default function ProjectPage() {
 
   useEffect(() => {
     if (!tabIds.length) return;
-    if (!tabIds.includes(tab)) {
+    const normalized = tab === 'stw_transforms' ? 'utility_transforms' : tab;
+    if (!tabIds.includes(normalized)) {
       setTab(tabIds.includes(DEFAULT_PROJECT_TAB) ? DEFAULT_PROJECT_TAB : tabIds[0]);
+    } else if (tab === 'stw_transforms') {
+      setTab('utility_transforms');
     }
   }, [tabIds, tab]);
 
@@ -130,7 +134,9 @@ export default function ProjectPage() {
   }
   if (!project) return null;
 
-  const activeTab = tabIds.includes(tab) ? tab : tabIds[0] || DEFAULT_PROJECT_TAB;
+  const activeTab = tabIds.includes(tab === 'stw_transforms' ? 'utility_transforms' : tab)
+    ? (tab === 'stw_transforms' ? 'utility_transforms' : tab)
+    : tabIds[0] || DEFAULT_PROJECT_TAB;
 
   return (
     <ProjectShell project={project} activeTab={activeTab} onTabChange={goToTab} plugin={plugin}>
@@ -145,8 +151,8 @@ export default function ProjectPage() {
 
       {activeTab === 'wizard' && (
         <>
-          <PanelHeader title="Migration Wizard" subtitle="Guided setup from extract to run." />
-          <MigrationWizard project={project} entities={entities} onRefresh={load} />
+          <PanelHeader title="Guided Migration Setup" subtitle="Step through extract, mapping, selection, and execution." />
+          <MigrationWizard project={project} entities={entities} onRefresh={load} onNavigateTab={goToTab} />
         </>
       )}
 
@@ -171,10 +177,10 @@ export default function ProjectPage() {
         </>
       )}
 
-      {activeTab === 'stw_transforms' && (
+      {(activeTab === 'utility_transforms' || activeTab === 'stw_transforms') && (
         <>
           <PanelHeader
-            title="STW Transform Rules"
+            title="Utility Transform Rules"
             subtitle="Property type, area code, and rate band rules — editable per project."
           />
           <StwTransformRulesPanel project={project} />
@@ -185,6 +191,13 @@ export default function ProjectPage() {
         <>
           <PanelHeader title="Candidate Selection" subtitle="Configure which records are included in each run." />
           <CandidatesPanel project={project} entities={entities} />
+        </>
+      )}
+
+      {activeTab === 'waves' && (
+        <>
+          <PanelHeader title="Wave Programme" subtitle="Schedule daily migration waves with health gates and auto-pause." />
+          <WavesPanel project={project} entities={entities} />
         </>
       )}
 

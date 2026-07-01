@@ -211,7 +211,7 @@ export default function TransformConfigEditor({ transformType, config, onChange,
   if (transformType === 'stw_property_type' || transformType === 'stw_area_code') {
     return (
       <p className="muted config-hint">
-        Uses project STW transform rules (STW Transforms tab). No per-field config required unless overriding via JSON below.
+        Uses project utility transform rules (Utility Transforms tab). No per-field config required unless overriding via JSON below.
       </p>
     );
   }

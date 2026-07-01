@@ -126,7 +126,7 @@ export default function DestinationPluginCard({
           {isKraken ? (
             <>
               <b>Kraken AccountType:</b> required/optional follows GraphQL{' '}
-              <code>!</code> markers from Severn Trent&apos;s introspectable schema. Legacy{' '}
+              <code>!</code> markers from the destination introspectable schema. Legacy{' '}
               <code>billingAddressLine1–5</code> and structured <code>address.line1</code> coexist
               — map both during transition. Set <code>migrationSource</code> (constant transform)
               and <code>isMigrated</code> to mark provenance.

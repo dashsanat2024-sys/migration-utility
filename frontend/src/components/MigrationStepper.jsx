@@ -1,14 +1,22 @@
 const STEPS = [
-  { id: 'plugin', label: 'Select destination plugin' },
-  { id: 'extract', label: 'Upload source extract' },
-  { id: 'map', label: 'Map fields to schema' },
-  { id: 'transforms', label: 'Transform rules' },
-  { id: 'tariffs', label: 'Tariff mapping' },
-  { id: 'run', label: 'Validate & run' },
+  { id: 'prepare', label: 'Upload & stage' },
+  { id: 'map', label: 'Schema & mapping' },
+  { id: 'transforms', label: 'Rules & transforms' },
+  { id: 'select', label: 'Select cohort' },
+  { id: 'health', label: 'Account health' },
+  { id: 'run', label: 'Execute migration' },
+  { id: 'reconcile', label: 'Reconcile' },
 ];
 
-export default function MigrationStepper({ currentIndex = 3, showTariff = true }) {
-  const steps = showTariff ? STEPS : STEPS.filter((s) => s.id !== 'tariffs');
+export default function MigrationStepper({ currentIndex = 1, showTariff = false }) {
+  let steps = STEPS;
+  if (showTariff) {
+    steps = [
+      ...STEPS.slice(0, 3),
+      { id: 'tariffs', label: 'Tariff mapping' },
+      ...STEPS.slice(3),
+    ];
+  }
 
   return (
     <div className="migration-stepper">

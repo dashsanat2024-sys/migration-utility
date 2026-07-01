@@ -15,7 +15,7 @@ export default function Layout({ children }) {
     <div className="app-shell">
       <header className="topbar dashboard-topbar">
         <Link to="/" className="brand">
-          <BrandLogo size={48} subtitle="Extract · Validate · Transform · Load" />
+          <BrandLogo size={48} subtitle="Extract · Map · Select · Run · Reconcile" />
         </Link>
         <nav className="topnav">
           <Link to="/" className={pathname === '/' ? 'active' : ''}>

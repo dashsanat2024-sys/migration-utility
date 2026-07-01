@@ -1,6 +1,6 @@
 /** Browser paths for project workspace (slug in URL; tabs are in-app state). */
 
-export const DEFAULT_PROJECT_TAB = 'mapping';
+export const DEFAULT_PROJECT_TAB = 'wizard';
 
 export const PROJECT_TAB_IDS = [
   'wizard',
@@ -8,10 +8,12 @@ export const PROJECT_TAB_IDS = [
   'mapping',
   'rules',
   'tariffs',
-  'stw_transforms',
+  'utility_transforms',
+  'stw_transforms', // legacy alias
   'account_health',
   'selection',
   'runs',
+  'waves',
   'reconciliation',
   'errors',
   'matrix',

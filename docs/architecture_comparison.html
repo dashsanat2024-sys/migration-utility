@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migration Engine Utility — Architecture Comparison</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0B0E14; --panel: #121826; --card: #1B2333; --card2: #1E2840;
+  --border: #2A3550; --border-soft: #1F2A40;
+  --text: #E7EAF2; --dim: #9AA4BD; --faint: #5B6380;
+  --blue: #4F8CFF; --blue-bg: rgba(79,140,255,0.10);
+  --green: #34D399; --green-bg: rgba(52,211,153,0.10);
+  --amber: #FB923C; --amber-bg: rgba(251,146,60,0.10);
+  --red: #F87171; --red-bg: rgba(248,113,113,0.10);
+  --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.10);
+  --teal: #22D3EE; --teal-bg: rgba(34,211,238,0.10);
+  --display: 'Space Grotesk', sans-serif;
+  --body: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--ink); color: var(--text); font-family: var(--body); font-size: 13px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  background: var(--panel); border-bottom: 1px solid var(--border-soft);
+  padding: 20px 32px 16px;
+}
+.page-header h1 { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.page-header .sub { font-size: 12px; color: var(--dim); margin-top: 4px; }
+.tabs { display: flex; gap: 6px; margin-top: 14px; }
+.tab { padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--dim); background: transparent; transition: .15s; }
+.tab:hover { border-color: var(--blue); color: var(--text); }
+.tab.active { background: var(--blue-bg); border-color: var(--blue); color: #C5D8FF; }
+
+/* ── LEGEND ── */
+.legend-bar {
+  display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 32px;
+  background: var(--panel); border-bottom: 1px solid var(--border-soft);
+}
+.leg { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); }
+.leg-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── VIEWS ── */
+.view { display: none; padding: 24px 28px 48px; }
+.view.active { display: block; }
+
+/* ── COMPARISON VIEW ── */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.arch-side { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.arch-side-head {
+  padding: 14px 18px; font-family: var(--display); font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-soft);
+}
+.arch-side-head .badge { font-size: 10px; padding: 3px 8px; border-radius: 5px; font-weight: 600; font-family: var(--mono); }
+.arch-side-body { padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── ARCH SECTION ── */
+.asec {
+  border: 1px solid var(--border); border-radius: 9px; overflow: hidden;
+}
+.asec-head {
+  padding: 8px 12px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.asec-body { padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 7px; background: var(--card2); }
+
+/* color schemes for sections */
+.asec.blue .asec-head { background: rgba(79,140,255,0.18); color: #9CC4FF; border-bottom: 1px solid rgba(79,140,255,0.25); }
+.asec.green .asec-head { background: rgba(52,211,153,0.15); color: #6FEAD5; border-bottom: 1px solid rgba(52,211,153,0.2); }
+.asec.amber .asec-head { background: rgba(251,146,60,0.15); color: #FBC080; border-bottom: 1px solid rgba(251,146,60,0.2); }
+.asec.red .asec-head { background: rgba(248,113,113,0.15); color: #FFAAAA; border-bottom: 1px solid rgba(248,113,113,0.2); }
+.asec.purple .asec-head { background: rgba(167,139,250,0.15); color: #C4B3FD; border-bottom: 1px solid rgba(167,139,250,0.2); }
+.asec.teal .asec-head { background: rgba(34,211,238,0.15); color: #7EE8F5; border-bottom: 1px solid rgba(34,211,238,0.2); }
+.asec.gray .asec-head { background: rgba(90,100,130,0.25); color: #A0AABF; border-bottom: 1px solid rgba(90,100,130,0.25); }
+
+/* ── CHIPS ── */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 500;
+  border: 1px solid; cursor: default;
+}
+.chip-tag { font-family: var(--mono); font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; }
+
+.chip.original { background: rgba(90,100,130,0.2); border-color: rgba(90,100,130,0.35); color: #BFC5D4; }
+.chip.original .chip-tag { background: rgba(90,100,130,0.3); color: #9AA4BD; }
+
+.chip.matched { background: rgba(79,140,255,0.12); border-color: rgba(79,140,255,0.3); color: #B8D0FF; }
+.chip.matched .chip-tag { background: rgba(79,140,255,0.2); color: #7AAEFF; }
+
+.chip.enhanced { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.35); color: #93E8D0; }
+.chip.enhanced .chip-tag { background: rgba(52,211,153,0.2); color: #34D399; }
+
+.chip.new { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.35); color: #C4B3FD; }
+.chip.new .chip-tag { background: rgba(167,139,250,0.2); color: #A78BFA; }
+
+.chip.gap { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.3); color: #FFAAAA; }
+.chip.gap .chip-tag { background: rgba(248,113,113,0.2); color: #F87171; }
+
+.chip.partial { background: rgba(251,146,60,0.12); border-color: rgba(251,146,60,0.3); color: #FBC080; }
+.chip.partial .chip-tag { background: rgba(251,146,60,0.2); color: #FB923C; }
+
+/* ── ENHANCED VIEW (full architecture) ── */
+.full-arch { display: flex; flex-direction: column; gap: 16px; }
+.fa-row { display: grid; gap: 12px; align-items: start; }
+.fa-row.cols-3 { grid-template-columns: 1fr 1.8fr 1fr; }
+.fa-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.fa-row.cols-2 { grid-template-columns: 1.2fr 2fr; }
+.fa-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+.fa-box {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.fa-box-head {
+  padding: 8px 12px; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; display: flex; align-items: center; gap: 7px;
+}
+.fa-box-body { padding: 10px 12px; background: var(--card2); display: flex; flex-wrap: wrap; gap: 6px; }
+.fa-box-body.col { flex-direction: column; }
+
+/* reuse color classes */
+.fa-box.blue .fa-box-head { background: rgba(79,140,255,0.18); color: #9CC4FF; border-bottom: 1px solid rgba(79,140,255,0.2); }
+.fa-box.green .fa-box-head { background: rgba(52,211,153,0.16); color: #6FEAD5; border-bottom: 1px solid rgba(52,211,153,0.2); }
+.fa-box.amber .fa-box-head { background: rgba(251,146,60,0.18); color: #FBC080; border-bottom: 1px solid rgba(251,146,60,0.2); }
+.fa-box.red .fa-box-head { background: rgba(248,113,113,0.15); color: #FFAAAA; border-bottom: 1px solid rgba(248,113,113,0.2); }
+.fa-box.purple .fa-box-head { background: rgba(167,139,250,0.18); color: #C4B3FD; border-bottom: 1px solid rgba(167,139,250,0.2); }
+.fa-box.teal .fa-box-head { background: rgba(34,211,238,0.15); color: #7EE8F5; border-bottom: 1px solid rgba(34,211,238,0.2); }
+.fa-box.gray .fa-box-head { background: rgba(90,100,130,0.3); color: #A0AABF; border-bottom: 1px solid rgba(90,100,130,0.3); }
+.fa-box.dark .fa-box-head { background: rgba(15,25,45,0.8); color: var(--dim); border-bottom: 1px solid var(--border); }
+
+.fa-icon { font-size: 13px; }
+
+/* ARROW connectors between rows */
+.arch-arrow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 4px 0; color: var(--faint); font-size: 11px;
+}
+.arch-arrow span { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+
+/* ── DIFF TABLE VIEW ── */
+.diff-table { width: 100%; border-collapse: collapse; }
+.diff-table th {
+  padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700;
+  color: var(--dim); text-transform: uppercase; letter-spacing: .04em;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+}
+.diff-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-soft); vertical-align: top; font-size: 12px; }
+.diff-table tr:hover td { background: rgba(255,255,255,.015); }
+.status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 700; font-family: var(--mono); }
+.sp-match { background: var(--blue-bg); color: #7AAEFF; }
+.sp-enhanced { background: var(--green-bg); color: var(--green); }
+.sp-new { background: var(--purple-bg); color: var(--purple); }
+.sp-gap { background: var(--red-bg); color: var(--red); }
+.sp-partial { background: var(--amber-bg); color: var(--amber); }
+
+.detail-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.detail-list li { list-style: none; padding-left: 12px; position: relative; font-size: 11px; color: var(--dim); }
+.detail-list li::before { content: '·'; position: absolute; left: 0; color: var(--faint); }
+.detail-list li.new-item { color: #B3AAFF; }
+.detail-list li.new-item::before { content: '+'; color: var(--purple); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Migration Engine Utility — Capability Architecture</h1>
+  <div class="sub">Original: TCS Kraken Data Migration Utility reference design &nbsp;·&nbsp; Enhanced: Arthavi Migration Utility v0.11.0</div>
+  <div class="tabs">
+    <button class="tab active" onclick="showView('compare')">◧ Side-by-Side Comparison</button>
+    <button class="tab" onclick="showView('enhanced')">✦ Enhanced Architecture</button>
+    <button class="tab" onclick="showView('diff')">≋ Diff Table</button>
+  </div>
+</div>
+
+<div class="legend-bar">
+  <div class="leg"><div class="leg-dot" style="background:#4F8CFF"></div> Matched — present in both</div>
+  <div class="leg"><div class="leg-dot" style="background:#34D399"></div> Enhanced — original capability, significantly extended</div>
+  <div class="leg"><div class="leg-dot" style="background:#A78BFA"></div> New — not in original, added in Arthavi</div>
+  <div class="leg"><div class="leg-dot" style="background:#FB923C"></div> Partial — started but not complete</div>
+  <div class="leg"><div class="leg-dot" style="background:#F87171"></div> Gap — in original, not yet built</div>
+  <div class="leg"><div class="leg-dot" style="background:#5B6380"></div> Original only — reference architecture</div>
+</div>
+
+<!-- ═══════════════════ VIEW 1: COMPARE ═══════════════════ -->
+<div id="view-compare" class="view active">
+  <div class="compare-grid">
+
+    <!-- LEFT: ORIGINAL -->
+    <div class="arch-side">
+      <div class="arch-side-head">
+        <span>📋</span> Original Reference Architecture
+        <div class="badge" style="background:rgba(90,100,130,0.3);color:#9AA4BD;">TCS · Kraken Data Migration Utility</div>
+      </div>
+      <div class="arch-side-body">
+
+        <!-- Source layer -->
+        <div class="asec gray">
+          <div class="asec-head">Source Systems</div>
+          <div class="asec-body">
+            <span class="chip original">Legacy Billing/CIS</span>
+            <span class="chip original">Prod/Replica DB</span>
+            <span class="chip original">Customer Lock</span>
+            <span class="chip original">Extracts</span>
+          </div>
+        </div>
+
+        <!-- Landing -->
+        <div class="asec amber">
+          <div class="asec-head">Landing / Extraction</div>
+          <div class="asec-body">
+            <span class="chip original">Extract Landing Zone</span>
+            <span class="chip original">Local Replica DB</span>
+          </div>
+        </div>
+
+        <!-- Candidate Selection -->
+        <div class="asec red">
+          <div class="asec-head">Candidate Selection Module</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">UI</span> Switchable Selection Criteria</span>
+            <span class="chip original"><span class="chip-tag">UI</span> Select Criteria Rules</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Select Criteria Logic</span>
+          </div>
+        </div>
+
+        <!-- Migration Run -->
+        <div class="asec red">
+          <div class="asec-head">Migration Run Module</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">UI</span> Migration Run</span>
+            <span class="chip original"><span class="chip-tag">UI</span> Exclusion/Inclusion</span>
+            <span class="chip original"><span class="chip-tag">UI</span> Migration Re-Runs</span>
+          </div>
+        </div>
+
+        <!-- Data Mapping -->
+        <div class="asec blue">
+          <div class="asec-head">Data Mapping Module</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">UI</span> Data Mapping Matrix</span>
+            <span class="chip original"><span class="chip-tag">UI</span> Tariff Mapping</span>
+            <span class="chip original"><span class="chip-tag">WF</span> Mapping Agreement Workflow</span>
+          </div>
+        </div>
+
+        <!-- Validation & Transform -->
+        <div class="asec purple">
+          <div class="asec-head">Validation & Transformation Module</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">UI</span> Validation Rules</span>
+            <span class="chip original"><span class="chip-tag">UI</span> Transformation Rules</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Validation Logic</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Transformation Logic</span>
+          </div>
+        </div>
+
+        <!-- Datastore -->
+        <div class="asec teal">
+          <div class="asec-head">Migration Engine Datastore</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">DB</span> Rules & Configurations</span>
+            <span class="chip original"><span class="chip-tag">DB</span> Candidate Migration Statuses & History</span>
+            <span class="chip original"><span class="chip-tag">DB</span> Errors & Rejections</span>
+          </div>
+        </div>
+
+        <!-- Reporting -->
+        <div class="asec amber">
+          <div class="asec-head">Migration Reporting Module</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">RP</span> Standard Reconciliation & Progress Reports</span>
+            <span class="chip original"><span class="chip-tag">RP</span> Standard Error Reports</span>
+            <span class="chip original"><span class="chip-tag">RP</span> Custom Reports</span>
+          </div>
+        </div>
+
+        <!-- API Connectors -->
+        <div class="asec green">
+          <div class="asec-head">API Connectors → Kraken</div>
+          <div class="asec-body">
+            <span class="chip original"><span class="chip-tag">Fn</span> Product Import</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Account Import</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Post Account Import</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> Document Transfer</span>
+            <span class="chip original"><span class="chip-tag">Fn</span> DD Mandate</span>
+          </div>
+        </div>
+
+        <!-- Kraken APIs -->
+        <div class="asec gray">
+          <div class="asec-head">Kraken Destination APIs</div>
+          <div class="asec-body">
+            <span class="chip original">Product API Import</span>
+            <span class="chip original">Validate Account</span>
+            <span class="chip original">Stage Account</span>
+            <span class="chip original">Create Account</span>
+            <span class="chip original">Account Notes</span>
+            <span class="chip original">Financial Transactions</span>
+            <span class="chip original">Historical Statements</span>
+            <span class="chip original">Payment Instructions</span>
+            <span class="chip original">Document Transfer</span>
+          </div>
+        </div>
+
+        <!-- Update Legacy -->
+        <div class="asec gray">
+          <div class="asec-head">Update Legacy</div>
+          <div class="asec-body">
+            <span class="chip original">API/Webhooks</span>
+            <span class="chip original">Bottomline API</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT: ENHANCED -->
+    <div class="arch-side">
+      <div class="arch-side-head">
+        <span>✦</span> Arthavi Migration Utility — Enhanced Implementation
+        <div class="badge" style="background:rgba(79,140,255,0.2);color:#7AAEFF;">v0.11.0 · Azure-ready</div>
+      </div>
+      <div class="arch-side-body">
+
+        <!-- Source layer -->
+        <div class="asec gray">
+          <div class="asec-head">Source Systems</div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Legacy Billing/CIS (Target/CMP)</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> CSV/JSON/XML Extract</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Prod/Replica DB replication</span>
+          </div>
+        </div>
+
+        <!-- Landing ENHANCED -->
+        <div class="asec amber">
+          <div class="asec-head">Extract & Stage <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">ENHANCED</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> File Upload & Landing Zone</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Column Profiler (type/cardinality/format auto-detect)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Null rate & distinct value analysis</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Local Replica DB</span>
+          </div>
+        </div>
+
+        <!-- Candidate Selection GAP -->
+        <div class="asec red">
+          <div class="asec-head">Candidate Selection <span style="font-size:9px;background:rgba(248,113,113,0.2);color:#F87171;padding:2px 6px;border-radius:4px;margin-left:4px;">NOT BUILT</span></div>
+          <div class="asec-body">
+            <span class="chip gap"><span class="chip-tag">✗</span> Switchable Selection Criteria UI</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Select Criteria Rules</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Select Criteria Logic</span>
+          </div>
+        </div>
+
+        <!-- Migration Run ENHANCED -->
+        <div class="asec red">
+          <div class="asec-head">Migration Run Module <span style="font-size:9px;background:rgba(251,146,60,0.2);color:#FB923C;padding:2px 6px;border-radius:4px;margin-left:4px;">PARTIAL</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Migration Run (sync)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Async Worker (queued, resumable)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Run progress tracking</span>
+            <span class="chip partial"><span class="chip-tag">~</span> Exclusion/Inclusion UI</span>
+            <span class="chip partial"><span class="chip-tag">~</span> Migration Re-Runs (worker resumes; no dedicated UI)</span>
+          </div>
+        </div>
+
+        <!-- Data Mapping HEAVILY ENHANCED -->
+        <div class="asec blue">
+          <div class="asec-head">Schema & Field Mapping <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">MAJOR ENHANCEMENT</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Data Mapping Matrix UI</span>
+            <span class="chip partial"><span class="chip-tag">~</span> Tariff Mapping (nav item, screen pending)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Workflow: draft→in_review→approved→signed_off</span>
+            <span class="chip new"><span class="chip-tag">★</span> Destination-as-Plugin (live schema contract)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Kraken GraphQL schema introspection (real AccountType, 80+ fields)</span>
+            <span class="chip new"><span class="chip-tag">★</span> AI Semantic Field Matching (LangChain structured output)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Auto-suggest with confidence scores</span>
+            <span class="chip new"><span class="chip-tag">★</span> Enum gap detection (uncovered source values flagged)</span>
+          </div>
+        </div>
+
+        <!-- Validation & Transform ENHANCED -->
+        <div class="asec purple">
+          <div class="asec-head">Validation & Transform <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">MAJOR ENHANCEMENT</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Validation Rules UI</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Transformation Rules UI</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Validation Logic (Fn)</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Transformation Logic (copy/lookup/concat/conditional/date/pad)</span>
+            <span class="chip new"><span class="chip-tag">★</span> AI Transform Rule Inference (from sample data, 2-stage pipeline)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Confidence scores per rule (0.0–1.0)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Human review queue (needs-review sorted first)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Rule audit trail (ai_suggested vs human_confirmed)</span>
+          </div>
+        </div>
+
+        <!-- Datastore ENHANCED -->
+        <div class="asec teal">
+          <div class="asec-head">Migration Engine Datastore <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">ENHANCED</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Rules & Configurations (PostgreSQL 16)</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Candidate Migration Statuses & History</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Errors & Rejections</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Audit log (actor, role, comment, timestamp per state)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> AI suggestion history (separate from confirmed rules)</span>
+          </div>
+        </div>
+
+        <!-- Reporting ENHANCED -->
+        <div class="asec amber">
+          <div class="asec-head">Reconciliation & Reporting <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">ENHANCED</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Standard Reconciliation & Progress Reports</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> Standard Error Reports</span>
+            <span class="chip partial"><span class="chip-tag">~</span> Custom Reports (BI export only; builder not built)</span>
+            <span class="chip new"><span class="chip-tag">★</span> LangGraph AI Error Triage (cluster by Kraken error code)</span>
+            <span class="chip new"><span class="chip-tag">★</span> 920 Kraken error codes catalogued (KT-CT-* + KT-GB-*)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Plain-English failure narration</span>
+            <span class="chip new"><span class="chip-tag">★</span> Funnel metrics (staged→selected→loaded→failed)</span>
+            <span class="chip new"><span class="chip-tag">★</span> BI export (Metabase / Power BI JSON)</span>
+          </div>
+        </div>
+
+        <!-- API Connectors ENHANCED -->
+        <div class="asec green">
+          <div class="asec-head">Destination Plugin Layer <span style="font-size:9px;background:rgba(52,211,153,0.2);color:#34D399;padding:2px 6px;border-radius:4px;margin-left:4px;">MAJOR ENHANCEMENT</span></div>
+          <div class="asec-body">
+            <span class="chip matched"><span class="chip-tag">✓</span> Kraken Billing Plugin (REST)</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Plugin interface: get_schema() / validate() / load()</span>
+            <span class="chip enhanced"><span class="chip-tag">+</span> Schema introspection replaces manual catalog upload</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> SAP CRM Plugin (documented)</span>
+            <span class="chip matched"><span class="chip-tag">✓</span> File Export Plugin</span>
+            <span class="chip new"><span class="chip-tag">★</span> Plugin swap = no backend code change</span>
+            <span class="chip new"><span class="chip-tag">★</span> Azure Foundry LLM endpoint plugin (AI layer)</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Update Legacy / API Webhooks</span>
+            <span class="chip gap"><span class="chip-tag">✗</span> Bottomline API</span>
+          </div>
+        </div>
+
+        <!-- NEW: AI Layer -->
+        <div class="asec purple">
+          <div class="asec-head">AI-Assisted Layer <span style="font-size:9px;background:rgba(167,139,250,0.3);color:#A78BFA;padding:2px 6px;border-radius:4px;margin-left:4px;">NEW — NOT IN ORIGINAL</span></div>
+          <div class="asec-body">
+            <span class="chip new"><span class="chip-tag">★</span> LangChain (field mapping suggestions, structured output)</span>
+            <span class="chip new"><span class="chip-tag">★</span> LangGraph (multi-step error triage & reconciliation)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Azure Foundry / OpenAI model endpoint</span>
+            <span class="chip new"><span class="chip-tag">★</span> AzureAIOpenTelemetryTracer → Azure Monitor</span>
+            <span class="chip new"><span class="chip-tag">★</span> Mapping assistant chat (conversational schema Q&A)</span>
+          </div>
+        </div>
+
+        <!-- NEW: Azure Deployment -->
+        <div class="asec teal">
+          <div class="asec-head">Azure Deployment Layer <span style="font-size:9px;background:rgba(167,139,250,0.3);color:#A78BFA;padding:2px 6px;border-radius:4px;margin-left:4px;">NEW — NOT IN ORIGINAL</span></div>
+          <div class="asec-body">
+            <span class="chip new"><span class="chip-tag">★</span> Azure Container Apps / AKS</span>
+            <span class="chip new"><span class="chip-tag">★</span> Azure DB for PostgreSQL</span>
+            <span class="chip new"><span class="chip-tag">★</span> Microsoft Foundry (Claude / GPT model hosting)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Azure Monitor / App Insights (AI telemetry)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Azure Key Vault (credential management)</span>
+            <span class="chip new"><span class="chip-tag">★</span> Microsoft Entra ID (auth)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ VIEW 2: ENHANCED FULL ARCHITECTURE ═══════════════════ -->
+<div id="view-enhanced" class="view">
+  <div class="full-arch">
+
+    <!-- Row 0: Heading -->
+    <div style="text-align:center; padding: 4px 0 8px;">
+      <div style="font-family:var(--display);font-size:18px;font-weight:700;">Arthavi Migration Utility — Full Enhanced Architecture</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px;">v0.11.0 · FastAPI + React + PostgreSQL + LangChain/LangGraph · Azure-ready</div>
+    </div>
+
+    <!-- Row 1: Sources → Landing → Candidate (not built) -->
+    <div class="fa-row cols-3">
+      <div class="fa-box gray">
+        <div class="fa-box-head"><span class="fa-icon">🗄</span> Source Systems</div>
+        <div class="fa-box-body">
+          <span class="chip matched">Legacy Billing / CIS</span>
+          <span class="chip matched">Target / CMP Extract</span>
+          <span class="chip matched">CSV / JSON / XML</span>
+          <span class="chip gap">Prod/Replica DB</span>
+        </div>
+      </div>
+      <div class="fa-box amber">
+        <div class="fa-box-head"><span class="fa-icon">⬆</span> Extract & Stage <span class="chip enhanced" style="margin-left:auto;font-size:9px;padding:2px 7px;">Enhanced</span></div>
+        <div class="fa-box-body">
+          <span class="chip matched">File Upload & Landing Zone</span>
+          <span class="chip enhanced">Column Profiler (deterministic — type, cardinality, format, nulls)</span>
+          <span class="chip enhanced">Boolean / Date / UK Postcode / Enum / ID pattern detection</span>
+          <span class="chip new">Sample data summary → feeds AI inference</span>
+        </div>
+      </div>
+      <div class="fa-box red">
+        <div class="fa-box-head"><span class="fa-icon">☰</span> Candidate Selection <span class="chip gap" style="margin-left:auto;font-size:9px;padding:2px 7px;">Gap</span></div>
+        <div class="fa-box-body">
+          <span class="chip gap">Switchable Selection Criteria UI</span>
+          <span class="chip gap">Criteria Rules (UI)</span>
+          <span class="chip gap">Criteria Logic (Fn)</span>
+          <span style="font-size:10px;color:var(--faint);font-style:italic;width:100%;">→ Roadmap item</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow"><span></span>↓ field catalog loaded into mapping engine<span></span></div>
+
+    <!-- Row 2: Destination Plugin + Schema Contract (centrepiece) -->
+    <div class="fa-row cols-3">
+      <div class="fa-box purple">
+        <div class="fa-box-head"><span class="fa-icon">🔌</span> Destination Plugin Interface <span class="chip new" style="margin-left:auto;font-size:9px;padding:2px 7px;">New</span></div>
+        <div class="fa-box-body col">
+          <span class="chip new">get_schema() → live field contract</span>
+          <span class="chip new">validate(payload) → pre-load check</span>
+          <span class="chip new">load(payload) → destination write</span>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);width:100%;">
+            <div style="font-size:10px;color:var(--faint);margin-bottom:5px;">Registered plugins:</div>
+            <span class="chip enhanced">kraken-billing-v3</span>
+            <span class="chip matched">sap-crm</span>
+            <span class="chip matched">file_export</span>
+            <span class="chip matched">mock (test)</span>
+          </div>
+        </div>
+      </div>
+      <div class="fa-box blue">
+        <div class="fa-box-head"><span class="fa-icon">◧</span> Schema & Field Mapping <span class="chip enhanced" style="margin-left:auto;font-size:9px;padding:2px 7px;">Major Enhancement</span></div>
+        <div class="fa-box-body">
+          <span class="chip matched">Field Mapping Matrix UI</span>
+          <span class="chip new">Live schema contract from plugin (not manual upload)</span>
+          <span class="chip new">Kraken AccountType — 80 fields, non-null markers = required/optional</span>
+          <span class="chip new">AI Semantic Matching (LangChain → MappingSuggestion Pydantic model)</span>
+          <span class="chip new">Confidence score + reasoning per suggestion</span>
+          <span class="chip new">Enum gap detection (uncovered source values flagged, not guessed)</span>
+          <span class="chip partial">Tariff Mapping (nav item, screen TBC)</span>
+          <span class="chip enhanced">Workflow: draft → in_review → approved → signed_off</span>
+        </div>
+      </div>
+      <div class="fa-box purple">
+        <div class="fa-box-head"><span class="fa-icon">✦</span> AI-Assisted Layer <span class="chip new" style="margin-left:auto;font-size:9px;padding:2px 7px;">New</span></div>
+        <div class="fa-box-body col">
+          <div style="font-size:10px;color:var(--faint);margin-bottom:4px;">LangChain (single-shot)</div>
+          <span class="chip new">Semantic field mapping suggestion</span>
+          <span class="chip new">Lookup table draft generation</span>
+          <div style="font-size:10px;color:var(--faint);margin:6px 0 4px;padding-top:6px;border-top:1px solid var(--border);">LangGraph (multi-step)</div>
+          <span class="chip new">Transform rule inference pipeline</span>
+          <span class="chip new">Error triage & reconciliation graph</span>
+          <span class="chip new">AI chat mapping assistant</span>
+          <div style="font-size:10px;color:var(--faint);margin:6px 0 4px;padding-top:6px;border-top:1px solid var(--border);">Model hosting</div>
+          <span class="chip new">Azure Foundry / OpenAI / Claude</span>
+          <span class="chip new">Telemetry → Azure Monitor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow"><span></span>↓ approved mappings feed validation + transform engine<span></span></div>
+
+    <!-- Row 3: Transform Rules + Validation -->
+    <div class="fa-row cols-2">
+      <div class="fa-box purple">
+        <div class="fa-box-head"><span class="fa-icon">⚙</span> AI-Inferred Transform Rules <span class="chip new" style="margin-left:auto;font-size:9px;padding:2px 7px;">New</span></div>
+        <div class="fa-box-body">
+          <div style="font-size:10px;color:var(--faint);width:100%;margin-bottom:3px;">Stage 1 — Deterministic profiler (no LLM cost)</div>
+          <span class="chip enhanced">Type inference (boolean/date/enum/identifier/free_text)</span>
+          <span class="chip enhanced">Format detection (ISO date, UK postcode, etc.)</span>
+          <div style="font-size:10px;color:var(--faint);width:100%;margin:6px 0 3px;padding-top:6px;border-top:1px solid var(--border);">Stage 2 — AI inference (ambiguous columns only)</div>
+          <span class="chip new">TransformRule Pydantic schema (type, confidence, lookup_table, reasoning)</span>
+          <span class="chip new">Confidence 0.0–1.0 — below 0.75 sorted to review queue</span>
+          <span class="chip new">uncovered_source_values (flags enum gaps, refuses to guess)</span>
+          <div style="font-size:10px;color:var(--faint);width:100%;margin:6px 0 3px;padding-top:6px;border-top:1px solid var(--border);">Stage 3 — Human approval (nothing auto-commits)</div>
+          <span class="chip enhanced">Approve / Edit / Ask AI to reconsider</span>
+          <span class="chip new">ai_suggested vs human_confirmed flag per rule</span>
+        </div>
+      </div>
+      <div class="fa-box blue">
+        <div class="fa-box-head"><span class="fa-icon">✓</span> Validation Engine <span class="chip matched" style="margin-left:auto;font-size:9px;padding:2px 7px;">Matched</span></div>
+        <div class="fa-box-body">
+          <span class="chip matched">Required field validation</span>
+          <span class="chip matched">Format validation (regex)</span>
+          <span class="chip matched">In-list / enum validation</span>
+          <span class="chip matched">Numeric range checks</span>
+          <span class="chip matched">Cross-field validation rules</span>
+          <span class="chip matched">Validation Logic (Fn)</span>
+          <div style="font-size:10px;color:var(--faint);width:100%;margin:6px 0 3px;padding-top:6px;border-top:1px solid var(--border);">Transform types supported</div>
+          <span class="chip matched">direct_copy</span>
+          <span class="chip matched">lookup</span>
+          <span class="chip matched">concat</span>
+          <span class="chip matched">conditional</span>
+          <span class="chip matched">date_reformat</span>
+          <span class="chip matched">pad_left</span>
+          <span class="chip new">constant (migration provenance fields)</span>
+          <span class="chip new">regex_extract</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow"><span></span>↓ validated, transformed payload → migration run<span></span></div>
+
+    <!-- Row 4: Migration Run + Datastore -->
+    <div class="fa-row cols-3">
+      <div class="fa-box red">
+        <div class="fa-box-head"><span class="fa-icon">▶</span> Migration Run Module <span class="chip partial" style="margin-left:auto;font-size:9px;padding:2px 7px;">Partial</span></div>
+        <div class="fa-box-body col">
+          <span class="chip matched">Sync run (inline, Vercel-compatible)</span>
+          <span class="chip enhanced">Async worker (queued, Docker/K8s, resumable)</span>
+          <span class="chip enhanced">Run progress tracking</span>
+          <span class="chip partial">Exclusion/Inclusion filtering</span>
+          <span class="chip partial">Migration Re-Runs (worker resumes; no dedicated UI)</span>
+          <span class="chip gap">Candidate Selection integration</span>
+        </div>
+      </div>
+      <div class="fa-box teal">
+        <div class="fa-box-head"><span class="fa-icon">🗄</span> Migration Engine Datastore <span class="chip enhanced" style="margin-left:auto;font-size:9px;padding:2px 7px;">Enhanced</span></div>
+        <div class="fa-box-body col">
+          <span class="chip matched">Rules & Configurations (PostgreSQL 16)</span>
+          <span class="chip matched">Candidate Migration Statuses & History</span>
+          <span class="chip matched">Errors & Rejections</span>
+          <span class="chip enhanced">Full audit log (actor, role, comment, timestamp)</span>
+          <span class="chip enhanced">AI suggestion history (separate table)</span>
+          <span class="chip enhanced">Alembic migrations (versioned schema)</span>
+        </div>
+      </div>
+      <div class="fa-box green">
+        <div class="fa-box-head"><span class="fa-icon">🔌</span> API Connectors → Kraken <span class="chip enhanced" style="margin-left:auto;font-size:9px;padding:2px 7px;">Enhanced</span></div>
+        <div class="fa-box-body col">
+          <span class="chip matched">Product Import</span>
+          <span class="chip matched">Account Import (Stage/Create/Validate)</span>
+          <span class="chip matched">Post Account Import</span>
+          <span class="chip matched">Document Transfer</span>
+          <span class="chip matched">DD Mandate</span>
+          <span class="chip new">migrationSource provenance field (Kraken-native)</span>
+          <span class="chip new">HISTORIC payment status (Kraken-native backfill)</span>
+          <span class="chip new">MIGRATION consent source (Kraken-native GDPR provenance)</span>
+          <span class="chip gap">Update Legacy / API Webhooks</span>
+          <span class="chip gap">Bottomline API</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow"><span></span>↓ load results → reconciliation + reporting<span></span></div>
+
+    <!-- Row 5: Reconciliation + Reporting + Azure -->
+    <div class="fa-row cols-3">
+      <div class="fa-box amber">
+        <div class="fa-box-head"><span class="fa-icon">⊞</span> Reconciliation <span class="chip enhanced" style="margin-left:auto;font-size:9px;padding:2px 7px;">Enhanced</span></div>
+        <div class="fa-box-body col">
+          <span class="chip matched">Standard Reconciliation & Progress Reports</span>
+          <span class="chip matched">Standard Error Reports</span>
+          <span class="chip new">LangGraph triage pipeline (fetch→cluster→explain→report)</span>
+          <span class="chip new">920 Kraken error codes (KT-CT-* + KT-GB-*)</span>
+          <span class="chip new">Plain-English failure narration</span>
+          <span class="chip new">Funnel: staged→selected→loaded→failed</span>
+          <span class="chip new">Exception queue (assign / override / resolve)</span>
+          <span class="chip new">BI export (Metabase / Power BI)</span>
+          <span class="chip partial">Custom report builder (TBC)</span>
+        </div>
+      </div>
+      <div class="fa-box gray">
+        <div class="fa-box-head"><span class="fa-icon">☰</span> Governance & Workflow</div>
+        <div class="fa-box-body col">
+          <span class="chip enhanced">5 roles: Mapping Lead, BA, PO, Migration Engineer, QA Analyst</span>
+          <span class="chip enhanced">4 states: draft → in_review → approved → signed_off</span>
+          <span class="chip enhanced">Actor + role + comment history per transition</span>
+          <span class="chip new">AI suggestions never bypass workflow states</span>
+          <span class="chip new">Mapping lock on in_review transition</span>
+        </div>
+      </div>
+      <div class="fa-box teal">
+        <div class="fa-box-head"><span class="fa-icon">☁</span> Azure Deployment Layer <span class="chip new" style="margin-left:auto;font-size:9px;padding:2px 7px;">New</span></div>
+        <div class="fa-box-body col">
+          <span class="chip new">Container Apps / AKS (API + UI + Worker)</span>
+          <span class="chip new">Azure DB for PostgreSQL</span>
+          <span class="chip new">Microsoft Foundry (model hosting)</span>
+          <span class="chip new">Azure Monitor + App Insights</span>
+          <span class="chip new">Azure Key Vault (secrets)</span>
+          <span class="chip new">Microsoft Entra ID (auth)</span>
+          <span class="chip new">Docker Compose (pilot/VPC option)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════ VIEW 3: DIFF TABLE ═══════════════════ -->
+<div id="view-diff" class="view">
+  <table class="diff-table">
+    <thead>
+      <tr>
+        <th style="width:200px;">Original Module</th>
+        <th style="width:120px;">Status</th>
+        <th>Original Capability</th>
+        <th>Arthavi v0.11.0 Implementation & Enhancements</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Source Systems</strong></td>
+        <td><span class="status-pill sp-partial">PARTIAL</span></td>
+        <td>Legacy Billing/CIS, Prod/Replica DB, Customer Lock, Extracts</td>
+        <td>CSV/JSON/XML file extract ✓. Prod/Replica DB replication not built.
+          <ul class="detail-list">
+            <li class="new-item">Target/CMP sample extract with 15-column data dictionary</li>
+            <li class="new-item">Column profiler auto-runs on upload (boolean/date/enum/id detection)</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Landing / Extraction</strong></td>
+        <td><span class="status-pill sp-enhanced">ENHANCED</span></td>
+        <td>Extract Landing Zone, Local Replica DB</td>
+        <td>File upload landing zone ✓. Local Replica DB not built.
+          <ul class="detail-list">
+            <li class="new-item">Deterministic column profiler (15 columns, 6 type categories)</li>
+            <li class="new-item">Sample value analysis feeds Stage 2 AI inference</li>
+            <li class="new-item">Null rate, distinct value, format-pattern detection</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Candidate Selection Module</strong></td>
+        <td><span class="status-pill sp-gap">NOT BUILT</span></td>
+        <td>Switchable Selection UI, Criteria Rules, Criteria Logic</td>
+        <td>Not implemented. Roadmap item. All records in an extract are currently treated as candidates.</td>
+      </tr>
+      <tr>
+        <td><strong>Migration Run Module</strong></td>
+        <td><span class="status-pill sp-partial">PARTIAL</span></td>
+        <td>Migration Run UI, Exclusion/Inclusion UI, Re-Runs UI</td>
+        <td>Sync run ✓. Re-Run via worker resume (partial).
+          <ul class="detail-list">
+            <li class="new-item">Async worker (same Docker image, separate deployment, queued)</li>
+            <li class="new-item">Run progress tracking with resume on failure</li>
+            <li>Exclusion/Inclusion UI: navigation item exists, screen not fully built</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Data Mapping Module</strong></td>
+        <td><span class="status-pill sp-enhanced">MAJOR +</span></td>
+        <td>Data Mapping Matrix UI, Tariff Mapping UI, Mapping Agreement Workflow</td>
+        <td>Full mapping screen ✓. Tariff mapping partial.
+          <ul class="detail-list">
+            <li class="new-item">Destination-as-plugin architecture (live schema contract, not manual upload)</li>
+            <li class="new-item">Kraken GraphQL schema introspected live (AccountType, 80+ real fields)</li>
+            <li class="new-item">Required/optional from GraphQL non-null markers directly</li>
+            <li class="new-item">AI semantic field matching (LangChain structured output, MappingSuggestion)</li>
+            <li class="new-item">Enum gap detection — source values with no destination match flagged not guessed</li>
+            <li>Workflow enhanced: draft → in_review → approved → signed_off (was implied 2-state)</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Validation & Transformation Module</strong></td>
+        <td><span class="status-pill sp-enhanced">MAJOR +</span></td>
+        <td>Validation Rules UI, Transformation Rules UI, Validation Logic Fn, Transformation Logic Fn</td>
+        <td>All 4 original capabilities built ✓.
+          <ul class="detail-list">
+            <li class="new-item">AI-inferred transform rules from sample data (2-stage pipeline: profiler + LLM)</li>
+            <li class="new-item">Confidence score 0.0–1.0 per rule; below 0.75 surfaced for review first</li>
+            <li class="new-item">TransformRule Pydantic schema with lookup_table, uncovered_source_values, reasoning</li>
+            <li class="new-item">Human approval queue (ai_suggested vs human_confirmed flag)</li>
+            <li class="new-item">Transform types: copy, lookup, concat, conditional, date_reformat, pad_left, constant, regex</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Migration Engine Datastore</strong></td>
+        <td><span class="status-pill sp-enhanced">ENHANCED</span></td>
+        <td>Rules & Configs DB, Candidate Statuses & History DB, Errors & Rejections DB</td>
+        <td>All 3 original tables ✓ (PostgreSQL 16, Alembic migrations).
+          <ul class="detail-list">
+            <li class="new-item">Full audit log: actor, role, comment, timestamp per workflow state transition</li>
+            <li class="new-item">AI suggestion history stored separately from confirmed rules</li>
+            <li class="new-item">Alembic versioned migrations for schema evolution</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Migration Reporting Module</strong></td>
+        <td><span class="status-pill sp-enhanced">ENHANCED</span></td>
+        <td>Standard Reconciliation & Progress Reports, Standard Error Reports, Custom Reports</td>
+        <td>Standard reports ✓. Custom report builder not built.
+          <ul class="detail-list">
+            <li class="new-item">LangGraph multi-step AI error triage (fetch → cluster → explain → report)</li>
+            <li class="new-item">920 Kraken error codes catalogued (KT-CT-* core + KT-GB-* UK-specific)</li>
+            <li class="new-item">Plain-English failure narration per error cluster</li>
+            <li class="new-item">Reconciliation funnel (staged → selected → loaded → failed)</li>
+            <li class="new-item">Exception queue with assign/override/resolve and audit per exception</li>
+            <li class="new-item">BI export (JSON for Metabase, Power BI, or any dashboard)</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>API Connectors → Kraken</strong></td>
+        <td><span class="status-pill sp-enhanced">ENHANCED</span></td>
+        <td>Product Import Fn, Account Import Fn, Post Account Import Fn, Document Transfer Fn, DD Mandate Fn</td>
+        <td>All 5 Kraken connectors implemented ✓.
+          <ul class="detail-list">
+            <li class="new-item">Plugin interface (get_schema/validate/load) replaces hard-coded adapters</li>
+            <li class="new-item">Schema introspection via live Kraken GraphQL — developer.st.kraken.tech</li>
+            <li class="new-item">migrationSource, HISTORIC payment status, MIGRATION consent source (Kraken-native fields)</li>
+            <li>SAP CRM plugin ✓ (documented). File export plugin ✓.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Update Legacy / Webhooks</strong></td>
+        <td><span class="status-pill sp-gap">NOT BUILT</span></td>
+        <td>API/Webhooks to update source system post-migration, Bottomline API</td>
+        <td>Not implemented. Customer Lock / Update Legacy loop not in scope for this build.</td>
+      </tr>
+      <tr>
+        <td><strong>— NEW — AI-Assisted Layer</strong></td>
+        <td><span class="status-pill sp-new">NEW</span></td>
+        <td><em>Not in original architecture</em></td>
+        <td>
+          <ul class="detail-list">
+            <li class="new-item">LangChain: semantic field matching, lookup table draft, structured output via Pydantic</li>
+            <li class="new-item">LangGraph: multi-step error triage and reconciliation state graph</li>
+            <li class="new-item">Azure Foundry / OpenAI model endpoint (swappable)</li>
+            <li class="new-item">AzureAIOpenTelemetryTracer → Azure Monitor (every AI call traced)</li>
+            <li class="new-item">Mapping assistant chat (schema, error codes, current mapping context)</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>— NEW — Azure Deployment</strong></td>
+        <td><span class="status-pill sp-new">NEW</span></td>
+        <td><em>Not in original architecture</em></td>
+        <td>
+          <ul class="detail-list">
+            <li class="new-item">Container Apps / AKS deployment (API + UI + Worker)</li>
+            <li class="new-item">Azure DB for PostgreSQL (managed)</li>
+            <li class="new-item">Microsoft Foundry (Claude / GPT-4o model hosting)</li>
+            <li class="new-item">Azure Key Vault for Kraken credentials</li>
+            <li class="new-item">Microsoft Entra ID for user auth</li>
+            <li class="new-item">Docker Compose option for VPC/on-prem pilot</li>
+          </ul>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

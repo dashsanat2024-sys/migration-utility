@@ -5,10 +5,12 @@ import { getProjectProfile, profileSummary } from '../utils/projectProfile';
 import SchemaMappingPanel from './SchemaMappingPanel';
 import TariffWizardStep from './TariffWizardStep';
 import TransformRulesStep from './TransformRulesStep';
+import CandidatesPanel from './CandidatesPanel';
 import StepChecklist from './StepChecklist';
+import MigrationStepper from './MigrationStepper';
 import { StatusBadge } from './Layout';
 
-export default function MigrationWizard({ project, entities, onRefresh }) {
+export default function MigrationWizard({ project, entities, onRefresh, onNavigateTab }) {
   const entity = entities[0] || 'account';
   const profile = useMemo(() => getProjectProfile(project), [project]);
   const steps = useMemo(() => buildWizardSteps(profile), [profile]);
@@ -26,6 +28,7 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [completed, setCompleted] = useState({});
+  const [useSelection, setUseSelection] = useState(true);
 
   const currentStepMeta = steps.find((s) => s.id === step);
   const stepIndex = steps.findIndex((s) => s.id === step);
@@ -124,7 +127,7 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
     try {
       const run = await api.createRun(project.id, {
         name: `Migration ${new Date().toLocaleString()}`,
-        run_config: { entity, use_rules: true, use_selection: false },
+        run_config: { entity, use_rules: true, use_selection: useSelection },
         batches: [{ batch_number: 1 }],
       });
       const loads = await api.listRunLoads(run.id);
@@ -138,10 +141,24 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
     }
   };
 
+  const stepperIndex = {
+    overview: 1,
+    extract: 1,
+    field_mapping: 2,
+    transforms: 3,
+    tariff_mapping: profile.features?.tariff_mapping ? 4 : 3,
+    selection: profile.features?.tariff_mapping ? 5 : 4,
+    execute: profile.features?.tariff_mapping ? 6 : 5,
+  }[step] || 1;
+
   return (
     <div className="migration-wizard">
+      <MigrationStepper
+        currentIndex={stepperIndex}
+        showTariff={profile.features?.tariff_mapping}
+      />
       <div className="card wizard-header">
-        <h2>Migration wizard</h2>
+        <h2>Guided migration setup</h2>
         <p className="muted">
           {typeLabel} · {industryLabel} · {approachLabel}
         </p>
@@ -207,6 +224,7 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
                   <li><em>Optional:</em> Configure product / tariff mappings</li>
                 )}
                 <li>Approve rule set, preview destination payload, and run migration</li>
+                <li>Optionally schedule a multi-wave programme for high-volume cutover</li>
               </ol>
               {profile.industry === 'utility' && (
                 <p className="muted">
@@ -286,6 +304,20 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
             </div>
           )}
 
+          {step === 'selection' && (
+            <div className="wizard-step-content">
+              <div className="card">
+                <CandidatesPanel project={project} entities={entities} />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn ghost" onClick={prevStep}>Back</button>
+                <button type="button" className="btn primary" onClick={() => { markComplete('selection'); nextStep(); }}>
+                  Continue to execute
+                </button>
+              </div>
+            </div>
+          )}
+
           {step === 'execute' && (
             <div className="card wizard-step-content">
               <div className="form-grid">
@@ -297,12 +329,26 @@ export default function MigrationWizard({ project, entities, onRefresh }) {
                     ))}
                   </select>
                 </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useSelection}
+                    onChange={(e) => setUseSelection(e.target.checked)}
+                  />
+                  Apply candidate selection profile
+                </label>
               </div>
               <div className="btn-group form-actions">
                 <button type="button" className="btn ghost" onClick={prevStep}>Back</button>
                 <button type="button" className="btn" onClick={approveRuleSet} disabled={busy || !selectedRuleSetId}>Approve rule set</button>
                 <button type="button" className="btn" onClick={previewOutput} disabled={busy || !selectedRuleSetId}>Preview destination JSON</button>
                 <button type="button" className="btn primary" onClick={runMigration} disabled={busy || stagingCount === 0}>Run migration</button>
+                {onNavigateTab && (
+                  <>
+                    <button type="button" className="btn" onClick={() => onNavigateTab('runs')}>Open runs monitor</button>
+                    <button type="button" className="btn" onClick={() => onNavigateTab('waves')}>Schedule wave programme</button>
+                  </>
+                )}
               </div>
               {previewJson.length > 0 && (
                 <>
